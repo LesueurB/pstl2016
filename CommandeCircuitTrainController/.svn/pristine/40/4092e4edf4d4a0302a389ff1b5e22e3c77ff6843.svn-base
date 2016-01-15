@@ -1,0 +1,48 @@
+package upmc.train.controller.ihm;
+
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.controller.model.Controller;
+import upmc.train.model.Light;
+
+
+
+/**
+ * @author brunolesueur
+ *Controleur au sens MVC, permet, en fonction des actions sur la vue de
+ *réagir sur le modèle
+ */
+public class PanelSynoptiqueControler extends MouseAdapter
+{
+	PanelSynoptique vue ;
+	Controller model ;
+	public void setModel(Controller model) {
+		this.model = model;
+	}
+
+	public PanelSynoptiqueControler(PanelSynoptique vue)
+	{
+		super() ;
+		this.vue = vue ;
+		vue.addMouseListener(this);
+	}
+	
+	public void mouseClicked(MouseEvent evt)
+	{
+		Light l = vue.getLightByPosition(evt.getX(), evt.getY()) ;
+		if (l != null)
+		{
+			EColor color ;
+			if (l.getColorAsString().equals("red"))
+				color = EColor.GREEN ;
+			else
+				color = EColor.RED ;
+
+			this.model.changeLight(l, color, EDirection.FORWARD);
+			
+		}
+	}
+}

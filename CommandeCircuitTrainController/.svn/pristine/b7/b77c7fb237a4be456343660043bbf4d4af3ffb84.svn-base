@@ -1,0 +1,206 @@
+package upmc.train.controller.model;
+import java.util.ArrayList;
+
+import upmc.train.constantes.IConstantes.EAction;
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.constantes.IConstantes.EType;
+import upmc.train.controller.PCFEncoder;
+import upmc.train.controller.model.communication.NetMonitorPCF;
+import upmc.train.model.*;
+import upmc.train.model.communication.NetMonitor;
+import upmc.train.model.server.AlreadySetException;
+import upmc.utils.mvc.Model;
+public class Controller extends Model
+{
+	private Topography topography ;
+	private ArrayList<Train> trains = new ArrayList<Train>() ;
+	private IControleurStrategie strategie ;
+	private PCFEncoder encoder ; 
+	
+	public Controller(PCFEncoder encoder)
+	{
+		this.encoder = encoder ;
+		this.addAbonne(encoder);
+	}
+	public void setStrategie(IControleurStrategie strategie) {
+		this.strategie = strategie;
+	}
+	public void setTopography(Topography topography) 
+	{
+		ArrayList<Object> args = new ArrayList<Object>() ;
+		args.add("topography") ;
+		args.add(topography) ;
+		if (topography != null)
+			this.changed(args) ;	
+		this.topography = topography;
+		
+	}
+	public Topography getTopography() {
+		return topography;
+	}
+	public ArrayList<Train> getTrains() {
+		return trains;
+	}
+
+	//on retourne le train qui etait sur le canton precedent
+	//sinon on retourne null
+	public Train getTrainOn(String numCanton)
+	{
+		for(Train t : this.trains)
+		{
+			if (t.getCanton().getNom().equals(numCanton))
+				return t ;
+		}
+		return null ;
+	}
+	
+	public Train getTrain(int index)
+	{
+		return this.trains.get(index) ;
+	}
+	
+	public Train getTrainById(String id)
+	{
+		for(Train t : this.trains)
+		{
+			if (t.getAdresse().equals(id))
+				return t ;
+		}
+		return null ;		
+	}
+	
+	public void addTrainFromServer(String adresse, Canton cantonBefore, Canton cantonAfter, NetMonitor com)
+	{
+		Train t = new Train(adresse,com) ;
+		
+		this.trains.add(t) ;
+		t.setCanton(cantonAfter);
+		this.changed(null);
+	}
+	
+	public void addTrain(String adresse, Canton cantonBefore, Canton cantonAfter, NetMonitor com, EDirection direction)
+	{
+		Train t = new Train(adresse,com) ;
+		t.setDirection(direction);
+		this.trains.add(t) ;
+		t.setCanton(cantonAfter);
+		ArrayList<Object> args = new ArrayList<Object>() ;
+		args.add("addTrain") ;
+		args.add(cantonBefore) ;
+		args.add(cantonAfter) ;
+		args.add(t) ;
+		this.changed(args);
+	}
+	public void addTrainWithoutCommunication(String adresse, Canton cantonBefore, Canton cantonAfter, NetMonitor com, EDirection direction, EAction action)
+	{
+		Train t = new Train(adresse,com) ;
+		t.setDirection(direction);
+		t.setAction(action);
+		this.trains.add(t) ;
+		((NetMonitorPCF)com).setEncoderForTrain(t.getAdresse(), encoder) ;
+		t.setCanton(cantonAfter);
+		this.changed(null);
+	}	
+	public void changeLight(Light light, EColor color, EDirection direction)
+	{	
+		if (this.strategie != null)
+		{
+			if (this.strategie.acceptLightChange(light,color))
+			{
+				try {
+					light.setColor(color);
+				} catch (AlreadySetException e) {
+
+				}
+				if (color == EColor.GREEN)
+				{
+					strategie.propageGreenLight(light, direction) ;
+				}
+				this.changed(null) ;
+			}
+		}
+		else
+		{
+			try {
+				light.setColor(color);
+				this.changed(null) ;
+			} 
+			catch (AlreadySetException e) {
+			}
+		}
+	}
+	public void start()
+	{
+		ArrayList<Object> args = new ArrayList<Object>() ;
+		args.add("start") ;
+		this.changed(args) ;	
+	}
+	public void bye()
+	{
+		ArrayList<Object> args = new ArrayList<Object>() ;
+		args.add("bye") ;
+		this.changed(args) ;	
+	}
+	public void startAllTrains() {
+		for(Train t : this.trains)
+			t.setAction(EAction.START);
+		this.changed(null);
+		
+	}
+	public IControleurStrategie getStrategie() {
+		return this.strategie ;
+	}
+	public void reaction(String id, EType type) {
+		if (type == EType.CANTON)
+			this.getStrategie().reaction(id);
+		else
+			this.getStrategie().reactionGare(id);
+		 
+	}
+	public void stopAllTrains() {
+		for(Train t : this.trains)
+			t.setAction(EAction.STOP);
+		this.changed(null);
+		
+	}
+	public PCFEncoder getEncoder() {
+		
+		return encoder;
+	}
+	public void resetTrains() {
+		trains = new ArrayList<Train>() ;
+		
+	}
+	
+	public boolean isTrainWaitingOn(String nom)
+	{
+		for(Train t : this.getTrains())
+		{
+			
+			if (t.getActionsAsString().equals("ATTENTE"))
+				if (t.getNextCanton().getNom().equals(nom))
+					return true ;
+		}		
+		return false ;
+	}
+	public void printSituation()
+	{
+		System.out.println("[-----------------SITUATION-------------------]") ;
+		for(Train t : this.getTrains())
+		{
+			if (t.getActionsAsString().equals("START"))
+				System.out.print(t.getAdresse() + " run on " + t.getCanton().getNom() + " - ");
+			if (t.getActionsAsString().equals("STOP"))
+				System.out.print(t.getAdresse() + " is stop on " + t.getCanton().getNom() + " - ");
+			if (t.getActionsAsString().equals("ATTENTE"))
+				System.out.print(t.getAdresse() + " is waiting on " + t.getNextCanton().getNom() + " - ");
+			if (t.getActionsAsString().equals("EN STATION"))
+				System.out.print(t.getAdresse() + " is stop in station on " + t.getNextCanton().getNom() + " - ");
+			
+		}
+		
+		System.out.println("\n[----------------------------------------------]") ;
+	}
+
+}

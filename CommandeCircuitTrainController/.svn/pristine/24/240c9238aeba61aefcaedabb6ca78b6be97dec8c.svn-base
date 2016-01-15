@@ -1,0 +1,102 @@
+package upmc.train.controller;
+
+import java.util.ArrayList;
+
+import upmc.train.model.Canton;
+import upmc.train.model.Train;
+import upmc.utils.mvc.IUpdate;
+
+public class PCFEncoder implements IUpdate
+{
+
+	private NetController network;
+
+	private void encodeAddTrain(Canton cantonBefore, Canton cantonAfter, Train t)
+	{
+		String message = "<init><position><before><capteur id=\"" 
+				+ cantonBefore.getNumero() + "\" type=\""+ cantonBefore.getType() + "\"/>" ;
+		message += ("</before><after><capteur id=\"" 
+				+ cantonAfter.getNumero() + "\" type=\""+ cantonAfter.getType() + "\"/>") ;
+		message += "</after><train id=\""+ t.getAdresse()+ "\" direction=\"" + t.getDirectionAsString() + "\" action=\""+ t.getActionsAsString() + "\"/>" ;
+		message += "</position></init>" ;
+		this.network.send(message, "request");
+	}
+	
+	@Override
+	public void updateMVC(Object o) {
+		@SuppressWarnings("unchecked")
+		ArrayList<Object> args = (ArrayList<Object>)o ;
+		if (args != null)
+		{
+			String arg0 = (String)(args.get(0)) ;
+			if (arg0.equals("addTrain"))
+			{
+				Canton arg1 =  (Canton)(args.get(1)) ;
+				Canton arg2 =  (Canton)(args.get(2)) ;	
+				Train arg3 = (Train)(args.get(3)) ;
+				this.encodeAddTrain(arg1, arg2, arg3);
+			}
+			
+			if (arg0.equals("start"))
+			{
+				this.encodeStart() ;
+			}
+			if (arg0.equals("bye"))
+			{
+				this.encodeBye() ;
+			}
+		}
+	}
+
+	public void encodeStart() {
+		String message = "<start/>" ;
+		this.network.send(message, "request");
+	}
+	public void encodeBye() {
+		String message = "<bye/>" ;
+		this.network.send(message, "request");
+	}
+	
+	public void encodeChangeLight(int num, String color) {
+		String message = "<set><light id=\"" + num + "\" color=\"" + color + "\"/></set>" ; 
+		this.network.send(message, "request");
+	}
+	
+	
+	public void encodeChangeTrain(String adresseLoco, String speed) {
+		String message = "<set><train id=\"" + adresseLoco + "\" action=\"" + speed + "\"/></set>" ; 
+		this.network.send(message, "request");
+	}	
+	public void encodeHello(String id)
+	{
+		network.send("<hello id=\"" + id + "\"/>", "request");
+	}
+	
+	public void setNetwork(NetController network) 
+	{
+		this.network = network ;	
+		network.setEncoder(this);
+	}
+
+	public void encodeScenario(String selectedItem) {
+		network.send("<scenario id=\"" + selectedItem + "\"/>", "request");
+		
+	}
+
+	public void encodeChangeTrainDirection(String adresseLoco, String action, String direction) {
+		String message = "<set><train id=\"" + adresseLoco + "\" action=\"" + action + "\"" ;
+		message += " direction = \""+ direction + "\"/></set>" ; 
+		this.network.send(message, "request");
+		
+	}
+
+	public NetController getNetwork() {
+		
+		return this.network ;
+	}
+
+	
+	
+	
+
+}

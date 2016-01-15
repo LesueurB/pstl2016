@@ -1,0 +1,22 @@
+package upmc.train.controller.model;
+
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.model.Canton;
+import upmc.train.model.Light;
+import upmc.train.model.Train;
+
+public interface IControleurStrategie 
+{
+	/**
+	 * permet d'avoir une r�action � un capteur activ�
+	 * @param capteur : numero du capteur qui a �t� activ�
+	 */
+	public void reaction(String capteur);
+	public void changeFeuMain(int numero) ;
+	public void reactionGare(String gare);
+	public boolean acceptLightChange(Light light, EColor color);
+	public void propageGreenLight(Light light, EDirection direction);
+	public void redemarreTrain(Train train, Canton nextGare);
+	public void setGreenLight() ;
+}

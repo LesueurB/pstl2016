@@ -1,0 +1,405 @@
+package upmc.train.controller.ihm;
+
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.StringTokenizer;
+
+import javax.swing.JPanel;
+
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.controller.model.Controller;
+import upmc.train.model.Canton;
+import upmc.train.model.Light;
+import upmc.train.model.Topography;
+import upmc.train.model.Train;
+import upmc.utils.mvc.IUpdate;
+
+public class PanelSynoptiqueExtended extends JPanel implements  IUpdate
+{
+	protected int nombreCantons = 2 ;
+	protected Topography topography ;;
+	protected HashMap<Rectangle,Light> positionFeux = new HashMap<Rectangle,Light>() ;
+	
+	protected int distance = 100 ;
+	protected BufferedImage image = null ;
+	protected Controller control ;
+	protected PanelSynoptiqueExtendedControler listener ;
+	private ArrayList<Node> nodes  = new ArrayList<Node>() ;
+	private HashMap<Node,Point> positions = new HashMap<Node, Point>() ;
+	private Node selectedNode = null ;
+	private String scenario = "";
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private Node getNodeNamed(String nom)
+	{
+		for(Node n : nodes)
+		{
+			if (n.getCanton().getNom().equals(nom))
+			{
+				return n ;
+			}
+		}
+		return null ;
+	}
+	public PanelSynoptiqueExtended(int nbCantons)
+	{
+		super() ;
+		
+		listener = new PanelSynoptiqueExtendedControler(this) ;
+		this.nombreCantons = nbCantons ;
+		this.init();
+		
+	}
+	public Node getNodeForPosition(int x, int y)
+	{
+		for(Node n : this.positions.keySet())
+		{
+			Rectangle r = new Rectangle(
+										(int)(this.positions.get(n).getX()) - 4,
+										(int)(this.positions.get(n).getY()) - 4,
+										8,
+										8
+										) ;
+			if (r.contains(x, y))
+			{
+				selectedNode = n ;
+				this.invalidate();
+				this.repaint();
+				return n ;
+			}
+		}
+		return null ;		
+	}
+	public void init()
+	{
+		if (this.topography != null)
+		{
+			positions.clear();
+			this.positionFeux.clear();
+			//on cree tous les noeuds
+			nodes.clear();
+			for(Canton c : this.topography.getGlobalListCanton())
+			{
+				Node n = new Node(c) ;
+				nodes.add(n) ;
+			}
+			//on cree tous les arc entre les noeuds
+			for(Canton c : this.topography.getGlobalListCanton())
+			{
+				Node n = this.getNodeNamed(c.getNom()) ;
+				for (Canton cn : c.getAllNext(EDirection.FORWARD))
+				{
+					Node next = this.getNodeNamed(cn.getNom()) ;
+					n.addOut(next);
+				}
+				for (Canton cn : c.getPrevious(EDirection.FORWARD))
+				{
+					Node previous = this.getNodeNamed(cn.getNom()) ;
+					n.addIn(previous);
+				}				
+			}	
+			this.distance = this.getWidth() / (this.nodes.size()) ;
+			int i = 0 ;
+			for(Node node : this.nodes)
+			{
+				positions.put(node, new Point(5 - 3 + (i * distance), 20)) ;
+				i++ ;
+			}
+		}
+		this.invalidate();
+		this.repaint();
+	}
+	private void drawArrow( Graphics2D g, int x, int y, int xx, int yy ){
+		float arrowWidth = 6.0f ;
+		float theta = 0.423f ;
+		int[] xPoints = new int[ 3 ],yPoints = new int[ 3 ] ;
+		float[] vecLine = new float[ 2 ] ;
+		float[] vecLeft = new float[ 2 ] ;
+		float fLength;
+		float th;
+		float ta;
+		float baseX, baseY ;
+		xPoints[ 0 ] = xx - ((xx - x) / 2);
+		yPoints[ 0 ] = yy - ((yy - y) / 2); // build the line vector
+		vecLine[ 0 ] = (float)xPoints[ 0 ] - x ;
+		vecLine[ 1 ] = (float)yPoints[ 0 ] - y ;
+		// build the arrow base vector - normal to the line
+		vecLeft[ 0 ] = -vecLine[ 1 ] ;
+		vecLeft[ 1 ] = vecLine[ 0 ] ;
+		// setup length parameters
+		fLength = (float)Math.sqrt( vecLine[0] * vecLine[0] + vecLine[1] * vecLine[1] ) ;
+		th = arrowWidth / ( 2.0f * fLength ) ;
+		ta = arrowWidth / ( 2.0f * ( (float)Math.tan( theta ) / 2.0f ) * fLength ) ;
+		// find the base of the arrow
+		baseX = ( (float)xPoints[ 0 ] - ta * vecLine[0]);
+		baseY = ( (float)yPoints[ 0 ] - ta * vecLine[1]);
+		// build the points on the sides of the arrow
+		xPoints[1] = (int)( baseX + th * vecLeft[0] );
+		yPoints[1] = (int)( baseY + th * vecLeft[1] );
+		xPoints[2] = (int)( baseX - th * vecLeft[0] );
+		yPoints[2] = (int)( baseY - th * vecLeft[1] );
+		g.drawLine( x, y, (int)baseX, (int)baseY ) ;
+		g.fillPolygon( xPoints, yPoints, 3 ) ;
+		}
+	public void paintComponent(Graphics g)
+	{
+		super.paintComponent(g);	
+		if (this.nodes.size() == 0)
+			return ;
+		for(Node n : this.positions.keySet())
+		{
+		
+			Canton c = n.getCanton() ;	
+			Train tr =  this.control.getTrainOn(c.getNom());
+			g.setColor(Color.black);
+			if (tr != null)
+				g.drawChars(
+						tr.
+						toString().toCharArray(), 
+						0, 
+						tr.toString().length(),
+						(int)(this.positions.get(n).getX()) ,
+						(int)(this.positions.get(n).getY()) + 5
+						) ;
+			if (c.getType().equals("gare"))
+				g.setColor(Color.cyan);
+			else
+				g.setColor(Color.black) ;
+			if (n == selectedNode)
+				g.setColor(Color.red) ;
+			g.fillOval((int)(this.positions.get(n).getX()),(int)(this.positions.get(n).getY()), 6,6 ) ;	
+			g.drawChars(
+					c.getNom().toCharArray(),
+					0,
+					c.getNom().length(),  
+					(int)(this.positions.get(n).getX()) - 5,
+					(int)(this.positions.get(n).getY()) - 5) ;
+			for(Link l : n.getOut())
+			{
+				if (l.getEnd().getCanton() == l.getStart().getCanton().getPositionAiguillage())
+					g.setColor(Color.black) ;
+				else
+					g.setColor(Color.BLUE) ;
+				g.drawLine(
+						(int)(this.positions.get(l.getStart()).getX()), 
+						(int)(this.positions.get(l.getStart()).getY()), 
+						(int)(this.positions.get(l.getEnd()).getX()), 
+						(int)(this.positions.get(l.getEnd()).getY()));
+				this.drawArrow(	(Graphics2D)g,
+								(int)(this.positions.get(l.getStart()).getX()), 
+								(int)(this.positions.get(l.getStart()).getY()), 
+								(int)(this.positions.get(l.getEnd()).getX()), 
+								(int)(this.positions.get(l.getEnd()).getY())
+							  );
+			}
+	
+	
+			Light l = c.getLight() ;
+			if (l != null)
+			{
+				g.setColor(Color.black) ;
+				g.fillRect(
+						15  + (int)(this.positions.get(n).getX()), 
+						(int)(this.positions.get(n).getY()) + 10,
+						 16, 
+						 32						
+						) ;	
+			
+				if (l.getColorAsString().equals("red"))
+				{
+					g.setColor(Color.RED) ;
+					g.fillOval(
+							20  + (int)(this.positions.get(n).getX()), 
+							(int)(this.positions.get(n).getY()) + 15,
+							6,
+							6) ;
+					g.setColor(Color.green) ;
+					g.drawOval(
+							20  + (int)(this.positions.get(n).getX()), 
+							(int)(this.positions.get(n).getY()) + 30,
+							6,
+							6) ;				
+				}
+				else
+				{
+					g.setColor(Color.RED) ;
+					g.drawOval(
+							20  + (int)(this.positions.get(n).getX()), 
+							(int)(this.positions.get(n).getY()) + 15,
+							6,
+							6) ;
+					g.setColor(Color.green) ;
+					g.fillOval(
+							20  + (int)(this.positions.get(n).getX()), 
+							(int)(this.positions.get(n).getY()) + 30,
+							6,
+							6) ;					
+				}	
+				
+			}
+			g.drawRect((int)(this.positions.get(n).getX()) - 4,
+					(int)(this.positions.get(n).getY()) - 4,
+					8,
+					8
+					) ;
+		}	
+	}
+
+	public void updateTopography(Topography topo) {
+		this.topography = topo;
+		this.init();
+		if (!this.scenario.equals(""))
+		{
+			this.loadPositions();
+		}
+		
+	}
+	public void setNewPosition(int x, int y, Node n) {
+		int x1, y1 ;
+		x1 = x ;
+		y1 = y ;
+		if (x1 < 0)
+			x1 = 0 ;
+		if (y1 < 0)
+			y1 = 0 ;		
+		this.positions.put(n, new Point(x1,y1)) ;
+		selectedNode = null ;
+		this.invalidate();
+		this.repaint();
+		
+	}
+	/**
+	 * @param x coordonnee X
+	 * @param y coordonnee Y
+	 * @return retourne le feu associ� � cette coordonn�es ou bien
+	 * null si il n'y a pas de feu
+	 */
+	public Light getLightByPosition(int x, int y)
+	{
+		for(Node n : positions.keySet())
+		{
+			if (n.getCanton().getLight() != null)
+			{
+				Rectangle r = new Rectangle(
+						15  + (int)(this.positions.get(n).getX()), 
+						(int)(this.positions.get(n).getY()) + 10,
+						 16, 
+						 32	) ;
+				if (r.contains(x, y))
+				{
+					return n.getCanton().getLight() ;
+				}
+			}
+		}
+		return null ;
+	}
+	/**
+	 * @param feu : numero du feu impliqu�
+	 * @param couleur : couleur � mettre sur le feu
+	 */
+	public void setNewState(int feu, EColor couleur)
+	{
+		
+		this.invalidate();
+		this.repaint() ;
+		
+	}
+	@Override
+	public void updateMVC(Object o) {
+		this.invalidate();
+		this.repaint();
+		
+	}
+	public void setControl(Controller controller) {
+		this.control = controller ;
+		listener.setModel(controller);
+		
+	}
+	public void setScenario(String o) {
+		this.scenario = o ;
+		
+	}
+	
+	private void loadPositions()
+	{
+		File ff = new File(this.scenario + ".pos") ;
+		if (ff.exists())
+		{
+			BufferedReader buff = null ;
+			try {
+				buff = new BufferedReader(new FileReader(ff)) ;
+				String line = "" ;
+				try {
+					while((line = buff.readLine()) != null)
+					{
+						StringTokenizer st = new StringTokenizer(line,";") ;
+						Node n = this.foundNodeWithName(st.nextToken()) ;
+						float x = Float.parseFloat(st.nextToken()) ;
+						float y = Float.parseFloat(st.nextToken()) ;
+						this.positions.put(n, new Point(x,y)) ;
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} ;
+				if (buff != null)
+					buff.close() ;
+			}
+			 	catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			this.invalidate();
+			this.repaint();
+		}
+	}
+	
+	private Node foundNodeWithName(String nom) {
+		for(Node n : this.positions.keySet())
+		{
+			if (n.getCanton().getNom().equals(nom))
+				return n;
+		}
+		return null;
+	}
+	public void savePositions() {
+		if (this.scenario != null)
+		{
+			File ff = new File(this.scenario + ".pos") ;
+			try {
+				FileWriter w = new FileWriter(ff) ;
+				for(Node n : positions.keySet())
+				{
+					w.write(	n.getCanton().getNom() 
+								+ ";" 
+								+ this.positions.get(n).getX()
+								+ ";"
+								+ this.positions.get(n).getY() );	
+					w.append("\n") ;
+				}
+				w.close() ;
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+}

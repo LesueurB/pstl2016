@@ -1,0 +1,170 @@
+package upmc.train.controller;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+
+import upmc.train.controller.ihm.ClientTrainFrame;
+import upmc.train.controller.model.Controller;
+import upmc.train.controller.model.communication.NetMonitorPCF;
+import upmc.train.model.messages.IMessageListener;
+import upmc.train.model.server.NetMonitorServer;
+
+public class NetController  implements Runnable {
+		 
+		private PrintWriter out;
+		private	Socket socket;
+		private Thread thd;
+		private BufferedReader in ;
+		private ArrayList<String> listeDesMessagesRecu = new ArrayList<String>();
+		private ArrayList<String> listeDesMessagesEnvoye = new ArrayList<String>();
+		private ArrayList<String> messages = new ArrayList<String>() ;
+		private MessageDecoder decoder ;
+		private boolean isRunning = true ;
+		private int numMessage = 0 ;
+		private PCFEncoder encoder ;
+		private static Controller controller ; 
+		public PCFEncoder getEncoder() {
+			return encoder;
+		}
+
+
+		public void setEncoder(PCFEncoder encoder) {
+			this.encoder = encoder;
+		}
+
+
+		public static void main (String[] args) 
+		{
+			//NetMonitorServer server = new NetMonitorServer(55556,"2") ;
+			controller = new Controller(new PCFEncoder()) ;
+			//server.start();
+			ClientTrainFrame fen = new ClientTrainFrame(controller) ;
+			fen.setVisible(true);
+		}
+		 
+
+		public NetController(Controller control)
+		{
+			//control.addAbonne(this.getEncoder());
+		}//Client
+		
+		public void addMessageListener(IMessageListener listener)
+		{
+			this.decoder.addMessageListener(listener);
+		}
+		public MessageDecoder connect(String address, String port)
+		{
+			
+			try{
+				socket = new Socket (address , Integer.parseInt(port));
+				NetMonitorPCF pcf = new NetMonitorPCF(0,null) ;
+				pcf.addNewArduino("");
+				pcf.addNetworkToArduinos(this) ;
+				decoder = new MessageDecoder(controller,messages,this, pcf) ;
+				decoder.start();
+			}//try
+			catch (IOException a ){
+				System.out.println("can't connect to server") ; 
+				a.printStackTrace() ;
+			}
+			
+			try{
+				out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true );
+				in  = new BufferedReader(new  InputStreamReader(socket.getInputStream ()));
+			}//try
+			
+			catch (IOException a ) {
+				System.out.println("Can't communicate with server") ;
+				a.printStackTrace();
+			}//catch IO
+			thd = new Thread (this) ;
+			thd.start();
+			return decoder ;
+		}
+
+		public void send (String message, String type)
+		{
+			String entete = "<pcf reqid=\"" + this.getNumMessage() + "\" type=\"" + type+ "\">" ;
+			SimpleDateFormat format = 
+		            new SimpleDateFormat("HH:mm:ss");
+			Date now = new Date();
+			this.setNumMessage(this.getNumMessage() + 1) ;
+			if (out != null)
+			{
+				out.println(entete + message + "</pcf>");
+				out.flush();
+				System.out.println(format.format(now) + " : " + entete + message + "</pcf>") ;
+				//this.listeDesMessagesEnvoye.add(message) ;
+			}
+		}
+		 
+		public void run ()
+		{
+			String tmp="" ;
+			String accu = "";
+			SimpleDateFormat format = 
+		            new SimpleDateFormat("HH:mm:ss");
+			while(isRunning)
+			{
+				try {
+					
+					tmp = in.readLine() ;
+					accu += tmp ;
+					if (accu.toLowerCase().contains("</pcf>"))
+					{
+						
+						synchronized(messages)
+						{
+							Date now = new Date();
+							System.out.print(format.format(now) + " : ") ;
+							System.out.println("Message received from server : " + accu);
+							this.messages.add(accu) ;
+							
+						}
+						accu = "" ;
+					}
+				}//try
+				catch (IOException a ) {
+					System.out.println("Error transmitting data") ;
+					a.printStackTrace() ; 
+					isRunning = false ;
+				}//catch IO
+			}
+			try
+			{
+				in.close();
+				out.close();
+				socket.close();
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+
+
+		public ArrayList<String> getMessageRecu() {
+			// TODO Auto-generated method stub
+			return this.listeDesMessagesRecu;
+		}
+
+
+		public int getNumMessage() {
+			return numMessage;
+		}
+
+
+		public void setNumMessage(int numMessage) {
+			this.numMessage = numMessage;
+		}
+
+
+		
+}

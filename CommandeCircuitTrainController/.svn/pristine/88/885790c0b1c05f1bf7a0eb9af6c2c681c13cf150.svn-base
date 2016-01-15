@@ -1,0 +1,464 @@
+package upmc.train.controller.ihm;
+
+import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.controller.MessageDecoder;
+import upmc.train.controller.NetController;
+import upmc.train.controller.model.Controller;
+import upmc.train.controller.model.IControleurStrategie;
+import upmc.train.controller.model.StrategieEntreeCircuit;
+import upmc.train.controller.model.StrategieEntreeCircuitEtRoute;
+import upmc.train.controller.model.StrategieGarePascal;
+import upmc.train.controller.model.StrategieMetroAllerRetour;
+import upmc.train.controller.model.communication.NetMonitorPCF;
+import upmc.train.model.Canton;
+import upmc.train.model.Topography;
+import upmc.train.model.messages.IMessageListener;
+import upmc.train.model.messages.MessageEvent;
+import upmc.utils.mvc.IUpdate;
+
+
+/**
+ *
+ * @author brunolesueur
+ */
+public class ClientTrainFrame extends javax.swing.JFrame implements IMessageListener, IUpdate{
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8548819341161366953L;
+	private NetController model ;
+	private MessageDecoder decoder ;
+    /**
+     * Creates new form ClientTrainFrame
+     */
+    public ClientTrainFrame(Controller control) {
+    	
+    	model = new NetController(control) ;
+    	control.getEncoder().setNetwork(model) ;
+
+        initComponents();
+        this.jPanel1.setVisible(false);
+        this.jPanel3.setVisible(false);
+        this.synoptique.setVisible(false);
+        this.start.setVisible(false);
+        this.bye.setVisible(false);
+        this.startAllTrain.setVisible(false);
+        this.stopAllTrain.setVisible(false);
+        this.setBounds(0, 0, 950, 600);
+        this.adresseServerField.setText("localhost");
+        this.portServerField.setText("55556");
+    }
+
+    private void initComponents() {
+
+        synoptique = new PanelSynoptiqueExtended(0);
+        jScrollPane1 = new javax.swing.JScrollPane();
+        textToSend = new javax.swing.JTextArea();
+        sendButton = new javax.swing.JButton();
+        connectButton = new javax.swing.JButton();
+        jPanel1 = new javax.swing.JPanel();
+        before = new javax.swing.JComboBox();
+        after = new javax.swing.JComboBox();
+        adresse = new javax.swing.JTextField();
+        adresseServerField = new javax.swing.JTextField();
+        portServerField = new javax.swing.JTextField();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
+        adresseServer = new javax.swing.JLabel();
+        portServer = new javax.swing.JLabel();
+        addTrain = new javax.swing.JButton();
+        jPanel3 = new javax.swing.JPanel();
+        scenario = new javax.swing.JComboBox();
+        loadScenario = new javax.swing.JButton();
+        jLabel4 = new javax.swing.JLabel();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        receivedMessage = new javax.swing.JTextArea();
+        start = new javax.swing.JButton();
+        bye = new javax.swing.JButton();
+        startAllTrain = new javax.swing.JButton();
+        stopAllTrain = new javax.swing.JButton();
+        frame = new FrameTrack() ;
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        getContentPane().setLayout(null);
+
+        synoptique.setLayout(null);
+        getContentPane().add(synoptique);
+        synoptique.setBounds(0, 370, 900, 800);
+
+        textToSend.setColumns(20);
+        textToSend.setRows(5);
+        jScrollPane1.setViewportView(textToSend);
+
+        getContentPane().add(jScrollPane1);
+        jScrollPane1.setBounds(0, 170, 360, 170);
+
+        sendButton.setText("send");
+        sendButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                sendMessage(evt);
+            }
+        });
+        getContentPane().add(sendButton);
+        sendButton.setBounds(120, 340, 75, 29);
+
+        connectButton.setText("Connect");
+        connectButton.setActionCommand("Connect");
+        connectButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                connectButtonActionPerformed(evt);
+            }
+        });
+        getContentPane().add(connectButton);
+        connectButton.setBounds(0, 60, 96, 29);
+        connectButton.getAccessibleContext().setAccessibleName("connectButton\n");
+
+        adresseServer.setText("Server address");
+        getContentPane().add(adresseServer);
+        adresseServer.setBounds(6, 0, 100, 16);
+ 
+        portServer.setText("Server port");
+        getContentPane().add(portServer);
+        portServer.setBounds(6, 30, 100, 16);   
+        
+        
+        
+        getContentPane().add(adresseServerField);
+        adresseServerField.setBounds(110, 0, 150, 28);
+        
+       
+        getContentPane().add(portServerField);
+        portServerField.setBounds(110, 30, 150, 28); 
+        
+        jPanel1.setLayout(null);
+
+        before.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                beforeActionPerformed(evt);
+            }
+        });
+        jPanel1.add(before);
+        before.setBounds(70, 40, 200, 27);
+
+        after.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                afterActionPerformed(evt);
+            }
+        });
+        jPanel1.add(after);
+        after.setBounds(70, 10, 200, 27);
+
+        adresse.setBounds(new java.awt.Rectangle(70, 70, 98, 28));
+        jPanel1.add(adresse);
+        adresse.setBounds(80, 70, 98, 28);
+
+        jLabel1.setText("After");
+        jPanel1.add(jLabel1);
+        jLabel1.setBounds(6, 10, 39, 16);
+
+        jLabel2.setText("Before");
+        jPanel1.add(jLabel2);
+        jLabel2.setBounds(6, 43, 39, 16);
+        
+        jLabel3.setText("Address");
+        jPanel1.add(jLabel3);
+        jLabel3.setBounds(6, 78, 55, 16);
+
+        addTrain.setText("Add train");
+        addTrain.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addTrain(evt);
+            }
+        });
+        jPanel1.add(addTrain);
+        addTrain.setBounds(94, 106, 102, 29);
+
+        getContentPane().add(jPanel1);
+        jPanel1.setBounds(360, 20, 280, 130);
+
+        jPanel3.setLayout(null);
+
+        scenario.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "1", "2","3","4"}));
+        scenario.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                scenarioActionPerformed(evt);
+            }
+        });
+        jPanel3.add(scenario);
+        scenario.setBounds(6, 32, 237, 27);
+
+        loadScenario.setText("Load");
+        loadScenario.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                loadScenarioActionPerformed(evt);
+            }
+        });
+        jPanel3.add(loadScenario);
+        loadScenario.setBounds(80, 71, 75, 29);
+
+        jLabel4.setText("Script load");
+        jPanel3.add(jLabel4);
+        jLabel4.setBounds(18, 10, 67, 16);
+
+        getContentPane().add(jPanel3);
+        jPanel3.setBounds(10, 30, 260, 120);
+
+        receivedMessage.setColumns(20);
+        receivedMessage.setRows(5);
+        jScrollPane2.setViewportView(receivedMessage);
+
+        getContentPane().add(jScrollPane2);
+        jScrollPane2.setBounds(370, 170, 530, 170);
+
+        startAllTrain.setText("Run all trains");
+        getContentPane().add(startAllTrain);
+        startAllTrain.setBounds(780, 60, 125, 29);
+        startAllTrain.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                startAllTrainActionPerformed(evt);
+            }
+        });
+        stopAllTrain.setText("Stop all trains");
+        getContentPane().add(stopAllTrain);
+        stopAllTrain.setBounds(780, 90, 125, 29);
+        stopAllTrain.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                stopAllTrainActionPerformed(evt);
+            }
+        });
+        start.setText("Start");
+        getContentPane().add(start);
+        start.setBounds(780, 30, 75, 29);
+        start.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                startActionPerformed(evt);
+            }
+        });       
+        
+
+        bye.setText("Bye");
+        getContentPane().add(bye);
+        bye.setBounds(780, 120, 75, 29);
+        bye.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                byeActionPerformed(evt);
+            }
+        });
+        pack();
+    }// </editor-fold>                        
+
+   
+    protected void stopAllTrainActionPerformed(ActionEvent evt) {
+    	this.decoder.getController().stopAllTrains() ;
+        this.startAllTrain.setVisible(true);
+        this.stopAllTrain.setVisible(false);
+		
+	}
+
+	protected void startAllTrainActionPerformed(ActionEvent evt) {
+	
+    	this.decoder.getController().startAllTrains() ;
+    	
+        this.startAllTrain.setVisible(false);
+        this.stopAllTrain.setVisible(true);
+		
+	}
+
+	protected void startActionPerformed(ActionEvent evt) {
+        this.startAllTrain.setVisible(true);
+        this.start.setVisible(false);
+		IControleurStrategie strat = null ;
+		String sc = this.decoder.getScenario() ;;
+		if (sc.equals("1"))
+		{
+			strat = new StrategieGarePascal(this.decoder.getController()) ;
+		}
+		if (sc.equals("3"))
+		{
+			strat = new StrategieMetroAllerRetour(this.decoder.getController()) ; 
+		}
+		if (sc.equals("7"))
+		{
+			strat = new StrategieEntreeCircuitEtRoute(this.decoder.getController()) ; 
+		}		
+		if (sc.equals("8"))
+		{
+			strat = new StrategieEntreeCircuitEtRoute(this.decoder.getController()) ; 
+		}
+		this.frame.savePositions() ; 
+		if (strat == null)
+			strat = new StrategieEntreeCircuit(this.decoder.getController()) ;
+    	this.decoder.getController().setStrategie(strat);
+		this.model.getEncoder().encodeStart();
+		this.synoptique.updateMVC(null);
+		this.jPanel1.setVisible(false);
+		this.jPanel3.setVisible(false);
+		
+	}
+
+	protected void byeActionPerformed(ActionEvent evt) {
+		this.model.getEncoder().encodeBye();
+        this.jPanel1.setVisible(false);
+        this.jPanel3.setVisible(false);
+        this.start.setVisible(false);
+        this.synoptique.setVisible(false); 
+        this.bye.setVisible(false);
+        this.startAllTrain.setVisible(false);
+        this.stopAllTrain.setVisible(false);
+        this.connectButton.setVisible(true);
+        this.adresseServer.setVisible(true);
+        this.adresseServerField.setVisible(true) ;
+        this.portServerField.setVisible(true);
+        this.portServer.setVisible(true);
+	}
+
+	private void loadScenarioActionPerformed(java.awt.event.ActionEvent evt) {                                             
+       
+    }                                            
+
+    // Variables declaration - do not modify                     
+    private javax.swing.JButton addTrain;
+    private javax.swing.JTextField adresse;
+    private javax.swing.JComboBox after;
+    private javax.swing.JComboBox before;
+    private javax.swing.JButton bye;
+    private javax.swing.JButton startAllTrain ;
+    private javax.swing.JButton stopAllTrain ;
+    private javax.swing.JButton connectButton;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel adresseServer ;
+    private javax.swing.JLabel portServer ;
+    private javax.swing.JTextField adresseServerField;
+    private javax.swing.JTextField portServerField;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel3;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JButton loadScenario;
+    private javax.swing.JTextArea receivedMessage;
+    private javax.swing.JComboBox scenario;
+    private javax.swing.JButton sendButton;
+    private javax.swing.JButton start;
+    private PanelSynoptiqueExtended synoptique;
+    private javax.swing.JTextArea textToSend;
+    private  FrameTrack frame ;
+    // End of variables declaration               
+
+    private void connectButtonActionPerformed(java.awt.event.ActionEvent evt) {                                              
+        decoder = this.model.connect(this.adresseServerField.getText(),this.portServerField.getText()) ;
+        decoder.getController().addAbonne(this) ;
+        this.frame.setControl(decoder.getController()); 
+        this.synoptique.setControl(decoder.getController());
+        this.model.addMessageListener(this);
+        this.model.getEncoder().encodeHello("client");
+        this.synoptique.setVisible(true);
+        this.start.setVisible(true);
+        this.bye.setVisible(true);
+        this.connectButton.setVisible(false);
+        this.adresseServer.setVisible(false);
+        this.adresseServerField.setVisible(false) ;
+        this.portServerField.setVisible(false);
+        this.portServer.setVisible(false);
+        
+    }                                             
+
+    private void sendMessage(java.awt.event.ActionEvent evt) {                             
+    	 this.model.send(this.textToSend.getText(), "request") ;
+    	 this.decoder.getController().changed(null);
+    }                            
+
+    private void addTrain(java.awt.event.ActionEvent evt) {                          
+        if (this.after.getSelectedItem() != null)
+        	if(this.before.getSelectedItem() != null)
+        		if (this.adresse.getText().length() > 0)
+        			this.decoder.getController().addTrain(adresse.getText(),
+        											(Canton)(this.before.getSelectedItem()), 
+        											(Canton)(this.after.getSelectedItem()),
+        											this.decoder.getCommunication(),
+        											EDirection.FORWARD
+  
+        											);
+        	NetMonitorPCF com = (NetMonitorPCF) this.decoder.getCommunication() ;
+        	com.setEncoderForTrain(adresse.getText(), model.getEncoder()) ;
+        	
+        	this.start.setVisible(true);
+        	
+    }                         
+
+    private void scenarioActionPerformed(java.awt.event.ActionEvent evt) {                                         
+
+    }                                        
+
+    private void beforeActionPerformed(java.awt.event.ActionEvent evt) {                                       
+    }                                      
+
+    private void afterActionPerformed(java.awt.event.ActionEvent evt) {   
+    	this.before.removeAllItems();
+		if (this.after.getSelectedItem() != null)
+		{
+			Canton c = (Canton)(this.after.getSelectedItem()) ;
+			for(Canton cn : c.getNext(EDirection.FORWARD)) 
+			{
+				this.before.addItem(cn); 
+			}
+		}       
+    }                                     
+
+	@Override
+	public void newMessage(MessageEvent evt) {
+		this.receivedMessage.setText(evt.getMessage() + this.receivedMessage.getText());
+	}
+
+	private void updateCanton(Topography topo)
+	{
+		this.after.removeAllItems();
+		for(Canton c : topo.getGlobalListCanton())
+		{
+			this.after.addItem(c);
+		}
+		this.before.removeAllItems();
+		this.after.setSelectedIndex(0);
+		if (this.after.getSelectedItem() != null)
+		{
+			Canton c = (Canton)(this.after.getSelectedItem()) ;
+			for(Canton cn : c.getNext(EDirection.FORWARD)) 
+			{
+				this.before.addItem(cn); 
+			}
+		}
+		this.synoptique.updateTopography(topo);
+		this.frame.updateTopography(topo);
+		this.frame.setVisible(true);
+	}
+	
+	@Override
+	public void updateMVC(Object o) {
+		this.frame.updateMVC(this.decoder.getScenario()) ; 
+		this.synoptique.updateMVC(o);
+		this.frame.updateMVC(o);
+		if (o != null)
+		{
+			@SuppressWarnings("unchecked")
+			ArrayList<Object> args = (ArrayList<Object>)o ;
+			String arg0 = (String)(args.get(0)) ;
+			if (arg0.equals("topography"))
+			{
+				Topography topo = (Topography)(args.get(1)) ;
+				if (arg0.equals("topography"))
+				{
+					this.updateCanton(topo) ;
+				}
+			}
+		}
+	}
+
+   
+}
+

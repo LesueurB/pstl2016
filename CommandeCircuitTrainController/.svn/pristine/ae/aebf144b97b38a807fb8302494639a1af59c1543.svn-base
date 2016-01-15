@@ -1,0 +1,218 @@
+package upmc.train.controller.model;
+
+import upmc.train.constantes.IConstantes.EAction;
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.model.Canton;
+import upmc.train.model.Gare;
+import upmc.train.model.Light;
+import upmc.train.model.Train;
+import upmc.train.model.server.AlreadySetException;
+import upmc.train.model.server.NoSuchLightException;
+
+
+/**
+ * @author brunolesueur
+ *
+ *
+ *Cette classe va servir � faire fonctionner le r�seau f�rroviere en mode "metro", les trains se suivent 
+ *mais ne doivent pas se collisionner, de plus ils s'arr�te pendant 15s dans une gare
+ */
+public class StrategieMetro implements IControleurStrategie
+{
+
+	private Controller c ;
+	
+	public void changeFeuMain(int numero)
+	{
+		
+	}
+	public StrategieMetro(Controller c)
+	{
+		this.c = c ;
+	}
+	
+	/**
+	 * Dans cette version du controleur, lorsque le feu passe au vert on regarde si une loco n'est pas en attente 
+	 * sur le canton pr�c�dent,
+	 * si c'est la cas on fait avanc� et on fait r�cursivement la meme chose pour le feux pr�c�dent 
+	 * @param feu : numero du feu qui passe au vert
+	 */
+	public void setFeuxVert(int feu)
+	{	
+	}
+	
+	/* (non-Javadoc)
+	 * @see clientwithrottle.IControleurStrategie#reaction(int)
+	 */
+	@Override
+	public void reaction(String capteur) 
+	{
+		this.c.printSituation();
+		System.out.println("------------> ACTIVATION de " + capteur + " depuis le moniteur") ;		
+		Light l1, l2 ;
+		Canton canton = c.getTopography().getCantonByName(capteur) ;
+		Train t = null;
+		Train t1 = null ;
+		for(Canton c : canton.getPrevious(EDirection.FORWARD))
+		{	
+			Train tr ;
+			tr = this.c.getTrainOn(c.getNom()) ;
+			if (tr != null)
+				t1 = tr ;
+		}
+		Train t2 = null;
+		for(Canton c : canton.getNext(EDirection.FORWARD))
+		{	
+			Train tr ;
+			tr = this.c.getTrainOn(c.getNom()) ;
+			if (tr != null)
+				t2 = tr ;
+		}
+		if ((t1 != null) && (t1.getDirection() == EDirection.FORWARD))
+			t = t1 ;
+		if ((t2 != null) && (t2.getDirection() == EDirection.BACKWARD))
+			t = t2 ;		
+		Light l;
+		try {
+			l = c.getTopography().getLightByName(capteur);
+			if (l.getColorAsString().equals("red"))
+			{
+				System.out.println("------------> REACTION : condition verifiee, feu " + l.getNumero() + " rouge") ;				
+				System.out.println("------------> REACTION :  on met  " + t.getAdresse() + " en START sur " + t.getNextCanton().getNom()) ;				
+				
+				t.setAction(EAction.ATTENTE);
+				this.c.changed(null);
+				return ;
+			}
+		}
+		catch (NoSuchLightException e1) {
+			e1.printStackTrace();
+		}
+		if (t != null)
+		{	t.setCanton(canton);
+			l1 = t.getPreviousCantonWithLight().getLight() ;
+			try {
+				l2 = c.getTopography().getLightByName(canton.getNom()) ;
+			} catch (NoSuchLightException e) {
+				e.printStackTrace();
+				l2 = null ;
+			}
+			Light lred ;
+			Light lgreen ;
+			if (t.getDirection() == EDirection.FORWARD)
+			{
+				lred = l2 ;
+				lgreen = l1 ;
+			}
+			else
+			{
+				lred = l1 ;
+				lgreen = l2 ;
+			}
+			if (lgreen != null)
+			{
+				System.out.println("------------> REACTION : feu " + lgreen.getNumero() + " est mis a vert") ;
+				c.changeLight(lgreen ,EColor.GREEN, t.getDirection());
+			}
+			if (lred != null)
+			{
+				System.out.println("------------> REACTION : feu " + lred.getNumero() + " est mis a rouge") ;
+				c.changeLight(lred, EColor.RED, t.getDirection());
+			}
+		}
+		c.changed(null);
+		System.out.println("------------> FIN REACTION -----------------------------------------");  
+		this.c.printSituation();
+	}
+	
+	public void redemarreTrain(Train t, Canton nextGare)
+	{
+		this.c.printSituation();
+		System.out.println("------------> REDEMARRAGE apres arret en station de " + t.getAdresse() + " depuis le controleur") ;
+		t.setCanton(t.getNextCanton()) ;
+		System.out.println("------------> REACTION :  on met  " + t.getAdresse() + " en START sur " + t.getCanton().getNom()) ;
+
+		t.setAction(EAction.START);
+		
+		c.changed(null);
+		System.out.println("------------> FIN REACTION -----------------------------------------");  
+		this.c.printSituation();		
+	}
+	
+	@Override
+	public void reactionGare(String gareId) 
+	{
+		this.c.printSituation();
+		System.out.println("------------> ACTIVATION de " + gareId + " depuis le moniteur") ;		
+		this.c.printSituation();
+		Gare gare = (Gare)(c.getTopography().getCantonByName(gareId)) ;
+		Train t = this.c.getTrainOn(gare.getPrevious(EDirection.FORWARD).get(0).getNom()) ;
+		System.out.println("------------> REACTION : " + t.getAdresse() + " est mis en station  (en station " + t.getNextCanton().getNom() + ")") ;		
+		t.setAction(EAction.ENSTATION);
+		AttenteTrain att = new AttenteTrain(t,gare.getNext(t.getDirection()).get(0),this);
+		att.start();
+		c.changed(null);	
+		System.out.println("------------> FIN REACTION -----------------------------------------");  
+		this.c.printSituation();		
+	}
+
+
+	@Override
+	public boolean acceptLightChange(Light light, EColor color) 
+	{
+		if (color == EColor.RED)
+			return true ;
+		Train t = this.c.getTrainOn(light.getNumero()) ;
+		if (t == null)
+			return true ;
+		return false ;
+	}
+
+
+	@Override
+	public void propageGreenLight(Light light, EDirection direction)  
+	{
+		Canton canton = this.c.getTopography().getCantonByName(light.getNumero()) ;
+		try {
+			System.out.println("------------> REACTION : feu " + light.getNumero() + " est mis a vert") ;
+			light.setColor(EColor.GREEN);
+		} catch (AlreadySetException e1) {
+		}
+		boolean b = false ;
+		for(Canton cp : canton.getPrevious(direction))
+		{
+			Train tr = this.c.getTrainOn(cp.getNom()) ;
+			if (tr != null)
+			{
+				if (tr.getActionsAsString().equals("ATTENTE"))
+				{
+					b = true ;
+					tr.setCanton(canton);
+					tr.setAction(EAction.START);
+					System.out.println("------------> REACTION : condition verifiee, train " + tr.getAdresse() + " EN ATTENTE sur " + tr.getCanton().getNom()) ;				
+					System.out.println("------------> REACTION : train " + tr.getAdresse() + " START sur " + tr.getCanton().getNom()) ;				
+					
+					try {
+						System.out.println("------------> REACTION : feu " + light.getNumero() + " est mis a reouge") ;
+						light.setColor(EColor.RED);
+					} catch (AlreadySetException e1) {
+					}
+					this.propageGreenLight(tr.getPreviousCantonWithLight().getLight(), direction);
+					
+				}
+			}
+		}
+		if (!b)
+		{
+			System.out.println("------------> FIN REACTION -----------------------------------------");  
+			this.c.printSituation();				
+		}
+		
+	}
+	@Override
+	public void setGreenLight() {
+		
+		
+	}
+}
