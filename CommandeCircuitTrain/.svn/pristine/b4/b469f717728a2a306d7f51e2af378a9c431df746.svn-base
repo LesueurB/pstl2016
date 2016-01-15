@@ -1,0 +1,16 @@
+package upmc.train.model;
+
+public class Switch {
+	private String numero = "" ;;
+	
+	public Switch(String num)
+	{
+		this.numero = num ;
+	}
+	
+	public String getNumero()
+	{
+		return this.numero ;
+	}
+
+}

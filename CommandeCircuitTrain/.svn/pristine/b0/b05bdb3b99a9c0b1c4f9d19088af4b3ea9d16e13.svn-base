@@ -1,0 +1,594 @@
+package upmc.train.model.server;
+
+import java.io.File;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+
+import upmc.train.constantes.IConstantes;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.constantes.IConstantes.EStatus;
+import upmc.train.constantes.IConstantes.EType;
+import upmc.train.constantes.IConstantes.ETypeRequest;
+import upmc.train.model.Canton;
+import upmc.train.model.CircuitSimulator;
+import upmc.train.model.Gare;
+import upmc.train.model.Light;
+import upmc.train.model.ScenarioOneValidator;
+import upmc.train.model.Topography;
+import upmc.train.model.Train;
+import upmc.train.model.communication.NetMonitor;
+import upmc.train.model.communication.simulator.NetMonitorSimulator;
+import upmc.train.model.messages.IMessageListener;
+import upmc.train.model.messages.MessageEvent;
+import upmc.train.model.messages.PCFDecoder;
+import upmc.train.model.messages.xml.BadPCFFormatException;
+import upmc.train.model.messages.xml.PCFByeElement;
+import upmc.train.model.messages.xml.PCFCapteurElement;
+import upmc.train.model.messages.xml.PCFEdgeElement;
+import upmc.train.model.messages.xml.PCFInfoElement;
+import upmc.train.model.messages.xml.PCFInitElement;
+import upmc.train.model.messages.xml.PCFLightElement;
+import upmc.train.model.messages.xml.PCFPositionElement;
+import upmc.train.model.messages.xml.PCFRootElement;
+import upmc.train.model.messages.xml.PCFSwitchElement;
+import upmc.train.model.messages.xml.PCFTrainElement;
+import upmc.train.model.messages.xml.PCFUpElement;
+
+public class MessageDecoder extends Thread implements IMessageListener
+{
+	private ArrayList<String> messages  ;
+	private HashMap<String,Train> trains = new HashMap<String,Train>() ;
+	private boolean isRunning = true ;
+	private NetMonitorDecoder decoderMonitor ;
+	private Topography topography = null ;
+	private String scenario = "";
+	private CircuitSimulator circuit ;
+	private CircuitFactory factory ;
+	private NetMonitor communication = null ;
+	private boolean isSimulator = true ;
+	public void sendCapteur(String msg)
+	{
+			PCFRootElement envoie = new PCFRootElement(""  + System.currentTimeMillis(),"request") ;
+			PCFUpElement up = new PCFUpElement() ;
+			PCFCapteurElement capt ;
+			Canton c = this.topography.getCantonByName(msg) ;
+			capt = new PCFCapteurElement(msg,c.getType()) ;
+			up.addCapteur(capt);
+			envoie.addUp(up);
+			decoderMonitor.send(envoie);
+	}
+	
+	public MessageDecoder(String scenario,ArrayList<String> messages, NetMonitorDecoder decoder, boolean simulator)
+	{
+		this.messages = messages ;
+		this.decoderMonitor = decoder ;
+		this.isSimulator = simulator ;
+		this.scenario = scenario ;
+		if (simulator)
+		{
+			this.factory = new CircuitFactorySimulator() ;
+			communication = new NetMonitorSimulator() ;
+			communication.addNewArduino("simulationArduino", IConstantes.newProtocol);
+			communication.addMessageListener(this);
+		}
+		else
+		{
+			communication = new NetMonitor() ;
+			communication.addMessageListener(this);
+			communication.addNewArduino(IConstantes.portArduino, IConstantes.newProtocol);
+			this.factory = new CircuitFactory() ;
+		}	
+	}
+	private void addKOMessage(PCFRootElement retour, String msg)
+	{
+		PCFInfoElement errorMsg = null ;
+		if (retour.getInfo() == null)
+		{
+			errorMsg = new PCFInfoElement(msg,"ko") ;
+		}
+		else if (retour.getInfo().getStatus() == EStatus.OK)
+		{
+			errorMsg = new PCFInfoElement(msg,"ko") ;
+		}
+		else
+		{
+			errorMsg = retour.getInfo() ;
+			errorMsg.setContenu(errorMsg.getContenu() + "@@@" + msg) ;
+		}
+		
+		retour.setInfo(errorMsg);
+	}
+
+	private void addOkMessage(PCFRootElement retour, String msg)
+	{
+		PCFInfoElement errorMsg = null ;
+		if (retour.getInfo() == null)
+		{
+			errorMsg = new PCFInfoElement(msg,"ok") ;
+		}
+		else if (retour.getInfo().getStatus() == EStatus.OK)
+		{
+			errorMsg = retour.getInfo() ;
+			errorMsg.setContenu(errorMsg.getContenu() + "@@@" + msg) ;
+		}
+		else
+			errorMsg = retour.getInfo() ;
+		
+		retour.setInfo(errorMsg);		
+	}	
+
+	private void traiteTopography(PCFRootElement retour,PCFRootElement racine)
+	{
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		DocumentBuilder db;
+		Document doc = null ;
+		try {
+			db = dbf.newDocumentBuilder();
+			doc = db.parse(new File("rep" + scenario + ".xml")) ;
+		} catch (Exception e) 
+		{
+			e.printStackTrace();
+			retour = new PCFRootElement("BAD REQUEST","answer");
+			this.addKOMessage(retour,"The request is not a valid PCF Format XML or scenario not found on monitor") ;
+		} 
+		if (doc != null)
+		{
+			System.out.println("Scenario " + scenario + ".xml loading ...") ;
+			PCFDecoder decoder = new PCFDecoder(doc) ;
+			try {
+				decoder.startDecoding();
+				
+				PCFRootElement newRacine = decoder.getRacine() ;
+				if (newRacine.getTopography() != null)
+				{
+					this.addTopographyResponse( newRacine);
+					retour.setTopography(newRacine.getTopography());
+				}
+				if (newRacine.getLights() != null)
+				{
+					this.traiteLights(newRacine);
+					retour.setLights(newRacine.getLights());
+				}
+			} catch (BadPCFFormatException e) {
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			}
+			catch (Exception e) 
+			{
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			} 
+		}	
+	}
+	
+	private void traiteScenario2(PCFRootElement retour,PCFRootElement racine)
+	{
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		DocumentBuilder db;
+		Document doc = null ;
+		try {
+			db = dbf.newDocumentBuilder();
+			doc = db.parse(new File("rep" + scenario + ".xml")) ;
+		} catch (Exception e) 
+		{
+			e.printStackTrace();
+			retour = new PCFRootElement("BAD REQUEST","answer");
+			this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+		} 
+		if (doc != null)
+		{
+			System.out.println("Scenario " + "rep" + scenario  + ".xml loading ...") ;
+			PCFDecoder decoder = new PCFDecoder(doc) ;
+			try {
+				decoder.startDecoding();
+				
+				PCFRootElement newRacine = decoder.getRacine() ;
+				if (newRacine.getOlleh() != null)
+					retour.setOlleh(newRacine.getOlleh());
+				if (newRacine.getTopography() != null)
+				{
+					this.addTopographyResponse( newRacine);
+					retour.setTopography(newRacine.getTopography());
+				}
+				if (newRacine.getLights() != null)
+				{
+					this.traiteLights(newRacine);
+					retour.setLights(newRacine.getLights());
+				}
+				if (newRacine.getInit() != null)
+				{
+					this.traiteInit(null, newRacine);
+					retour.setInit(newRacine.getInit());
+				}
+				if (newRacine.getScenario() != null)
+				{
+					retour.setScenario(newRacine.getScenario());
+				}				
+			} catch (BadPCFFormatException e) {
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			}
+			catch (Exception e) 
+			{
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			} 
+		}
+	}
+	private void traiteLights(PCFRootElement racine) {
+		for (PCFLightElement l : racine.getLights().getLights())
+		{
+			Light light = new Light(l.getId(),this.communication) ;
+			try {
+				light.setColor(l.getColor());
+			} catch (AlreadySetException e) {
+				
+			}
+			this.topography.addLight(light);
+			Canton canton = this.topography.getCantonByName(light.getNumero()) ;
+			canton.setLight(light); 
+		}
+	}
+	
+	
+	private void traiteInit(PCFRootElement retour,PCFRootElement racine)
+	{
+		Train t ;
+		PCFInitElement init = racine.getInit() ;
+		for(PCFPositionElement position : init.getPositions())
+		{
+			if (this.trains.containsKey(position.getTrain().getId()))
+			{
+				t = this.trains.get(position.getTrain().getId());
+				t.setCanton(this.topography.getCantonByName(position.getFin().getId()));
+			}
+			else
+			{
+				
+				t = factory.getNewTrain(position.getTrain().getId(),communication) ;
+				if (position.getTrain().getDirection() != null)
+					t.setDirection(position.getTrain().getDirection()) ;
+				else
+					t.setDirection(EDirection.FORWARD) ;
+				this.trains.put(position.getTrain().getId(), t); 
+				t.setCanton(this.topography.getCantonByName(position.getFin().getId()));
+			}
+			if (retour != null)
+				this.addOkMessage(retour,"Train " + position.getTrain().getId() + " is now initialized");
+		}
+	}		
+	
+	private void traiteStart(PCFRootElement retour,PCFRootElement racine)
+	{
+		if (this.circuit != null)
+		{
+			this.addKOMessage(retour,"Simulator already running");
+			return ;
+		}
+		this.circuit = new CircuitSimulator(this.decoderMonitor, null) ;
+		if (this.isSimulator)
+		{
+			if (this.scenario.equals("1"))
+				circuit.setValidator(new ScenarioOneValidator());
+		}
+		for(String id : trains.keySet())
+		{
+			circuit.addTrain(this.trains.get(id));
+		}
+		//finalement on  ne les fait plus directement demarre
+		if (this.isSimulator)
+		{
+			Thread thread = new Thread(circuit) ;
+			thread.start();
+			this.addOkMessage(retour,"Simulator running ...") ;
+		}
+		else
+		{
+			this.addOkMessage(retour,"real track running ...") ;
+		}
+	}		
+	
+	
+	private void traiteSet(PCFRootElement retour, PCFRootElement racine)
+	{
+		String errors = "" ;
+		Light light = null ;
+		Train train = null ;
+		if (topography == null)
+		{
+			this.addKOMessage(retour, "No topography selected, please request scenario, no actions");
+			return ;
+		}
+		for(PCFLightElement l : racine.getSet().getLights())
+		{
+			try
+			{
+				light = this.topography.getLightByid(l.getId()) ;
+				light.setColor(l.getColor());
+				
+			}
+			catch(NoSuchLightException e)
+			{
+				errors += "This light does not exist@@@" ;
+			} 
+			catch (AlreadySetException e) {
+				errors += "Light " + light.getNumero() + " is already set with this color@@@" ;
+			}
+		}
+		if (errors.equals("") && (racine.getSet().getLights().size() > 0))
+			this.addOkMessage(retour, "All light are set as requested");
+		else if (racine.getSet().getLights().size() > 0)
+			this.addKOMessage(retour,errors);
+		
+		
+		//on s'occupe des trains maintenant
+		for(PCFTrainElement l : racine.getSet().getTrains())
+		{
+			try
+			{
+				train = this.trains.get(l.getId()) ;
+				if (l.getAction() != null)
+				{
+					train.setAction(l.getAction());
+					this.addOkMessage(retour,"Train action " + l.getId() + " is set to : " + train.getActionsAsString());
+				}
+				if (l.getDirection() != null)
+				{
+					if (l.getDirection() == EDirection.BACKWARD)
+						train.reverse();
+					else
+						train.forward();
+					//train.setDirection(l.getDirection());
+					this.addOkMessage(retour,"Train direction " + l.getId() + " is set to : " + train.getDirectionAsString());
+				}
+				this.addOkMessage(retour,"Train " + l.getId() + " is set to : " + train.getActionsAsString());
+				
+			}
+			catch(Exception e)
+			{
+				errors += "The train " + l.getId() + " does not exist@@@" ;
+			} 
+		}
+		if (errors.equals("") && (racine.getSet().getTrains().size() > 0))
+			this.addOkMessage(retour, "All trains are set as requested");
+		else if (racine.getSet().getTrains().size() > 0)
+			this.addKOMessage(retour,errors);	
+		
+		//enfin les switches
+		for(PCFSwitchElement l : racine.getSet().getSwitches())
+		{
+			try
+			{
+				Canton c = this.topography.getCantonByName(l.getId()) ;
+				c.changeAiguillageTo(l.getPosition());
+				
+				this.addOkMessage(retour,"Switch " + l.getId() + " is set to : " + l.getPosition());
+					
+			}
+			catch(Exception e)
+			{
+				errors += "Unable to set switch" ;
+			} 
+		}
+		if (errors.equals("") && (racine.getSet().getTrains().size() > 0))
+			this.addOkMessage(retour, "All switches are set as requested");
+		else if (racine.getSet().getTrains().size() > 0)
+			this.addKOMessage(retour,errors);		
+		
+		
+	}
+	private void traiteBye(PCFRootElement retour)
+	{
+		if (circuit != null)
+		{
+			if (circuit.isRunning())
+			{
+				circuit.setIsRunning(false);
+				this.addOkMessage(retour, "The simulator has stopped");
+			}
+		}
+		this.addOkMessage(retour, "you have been disconnected from the server");
+		retour.setBye(new PCFByeElement());
+	}
+	
+	
+	private void traiteMessage(String message)
+	{
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		DocumentBuilder db;
+		Document doc = null ;
+		PCFRootElement retour = null ;
+		try {
+			db = dbf.newDocumentBuilder();
+			doc = db.parse(new InputSource(new StringReader(message))) ;
+		} 
+		catch (Exception e) 
+		{
+			retour = new PCFRootElement("BAD REQUEST","answer");
+			this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+		} 
+		if (doc != null)
+		{
+			PCFDecoder decoder = new PCFDecoder(doc) ;
+			try {
+				System.out.println("Received : " + message) ;
+				decoder.startDecoding();
+				PCFRootElement racine = decoder.getRacine() ;
+				retour = new PCFRootElement(racine.getReqId(),"answer");
+				if (racine.getType() == ETypeRequest.REQUEST)
+				{
+					try
+					{
+						this.decoderMonitor.setNumMessage(Integer.parseInt(racine.getReqId()));
+					}
+					catch(Exception e)
+					{
+						
+					}
+					if (racine.getScenario() != null)
+					{
+						if (circuit != null)
+						{
+							//first of all we create a new simulation
+							circuit.setIsRunning(false) ;
+							circuit = null ;
+						}
+						this.scenario = racine.getScenario().getId() ;
+						//this.traiteScenario2(retour, racine);
+					}
+					if (racine.getSet() != null)
+					{
+						this.traiteSet(retour, racine);
+					}
+					if (racine.getHello() != null)
+					{
+						//this.traiteHello(retour,racine);
+						this.traiteScenario2(retour, racine);
+					}
+					if (racine.getBye() != null)
+						this.traiteBye(retour);
+					if (racine.getInit() != null)
+						this.traiteInit(retour, racine);
+					if (racine.getStart() != null)
+						this.traiteStart(retour, racine);
+					if (racine.getTopography() != null)
+						
+						if (racine.getTopography().getEdges().size() == 0)
+						{
+							if (scenario.equals(""))
+								this.addKOMessage(retour,"A scenario must be choosen before asking topography") ;
+							else
+								this.traiteTopography(retour, racine) ;
+						}
+				}
+				else if (racine.getType() == ETypeRequest.ANSWER)
+				{
+					if (racine.getSet() != null)
+					{
+						this.traiteSet(retour, racine);
+					}
+				}
+				else //cas du advise
+				{
+					//on ne fait rien donc return ;
+					return ;
+				}
+	
+			} catch (BadPCFFormatException e) {
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			}
+			catch (Exception e) 
+			{
+				retour = new PCFRootElement("BAD REQUEST","answer");
+				this.addKOMessage(retour,"The request is not a valid PCF Format XML") ;
+			} 
+		}
+		this.decoderMonitor.send(retour);
+
+		if (retour.getBye() != null)
+		{
+			this.isRunning = false ;
+			decoderMonitor.setIsRunning(false) ;
+		}
+	}
+	
+	private void addTopographyResponse(PCFRootElement racine) {
+		Topography topo = new Topography() ;
+		Canton c  = null;
+		//on cr�e tout d'abord l'ensemble des cantons
+		//pour les relations on verra dans un second temps
+		for (PCFEdgeElement edge : racine.getTopography().getEdges())
+		{
+			if (topo.getCantonByName(edge.getCapteur().getId()) == null)
+			{
+				if (edge.getCapteur().getType() == EType.CANTON)
+				{
+					 c = new Canton(edge.getCapteur().getId(),edge.getCapteur().getId(), this.communication) ;	
+				}
+				else
+					c = new Gare(edge.getCapteur().getId(),edge.getCapteur().getId(), this.communication) ;
+				
+				topo.addToGlobalList(c);
+			}
+			topo.addCanton(c);
+		}
+		//maintenant on peut s'attaquer aux liens de dependances entres
+		//les differents capteurs
+		for (PCFEdgeElement edge : racine.getTopography().getEdges())
+		{
+			c = topo.getCantonByName(edge.getCapteur().getId())  ;
+			for(PCFCapteurElement capteur : edge.getIn().getIn())
+			{
+				c.addPreviousCanton(topo.getCantonByName(capteur.getId()));
+			}
+			for(PCFCapteurElement capteur : edge.getOut().getOut())
+			{
+				c.addNextCanton(topo.getCantonByName(capteur.getId()));
+			}
+		}
+		this.topography = topo ;
+	}
+
+	public void run()
+	{
+		Long lastView = System.currentTimeMillis() ;
+		String message ;
+		while(isRunning)
+		{
+			synchronized(messages)
+			{
+				if (!messages.isEmpty())
+				{
+					message = messages.remove(0) ;
+					lastView = System.currentTimeMillis() ;
+				}
+				else
+					message = "" ;
+			}
+			if (message.equals(""))
+			{
+				try {
+					Thread.sleep(500);
+					//on stoppe la connexion au bout de 30 min d'inactivit�
+					if ((System.currentTimeMillis() - lastView) > (30 * 60 * 1000))
+					{
+						PCFRootElement retour = new PCFRootElement("�����","request");
+						if (circuit != null)
+						{
+							if (circuit.isRunning())
+							{
+								circuit.setIsRunning(false);
+							}
+						}
+						this.addOkMessage(retour, "The simulator has stopped, no activity");
+						this.addOkMessage(retour, "you have been disconnected from the server");
+						retour.setBye(new PCFByeElement());	
+						this.decoderMonitor.send(retour);
+						this.isRunning = false ;
+						decoderMonitor.setIsRunning(false) ;
+					}
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			else
+				this.traiteMessage(message) ;
+		}
+	}
+
+	@Override
+	public void newMessage(MessageEvent evt) {
+		//ici on recoit un message de notre arduino
+		//c'est forcement un capteur pour le moment
+		this.sendCapteur(evt.getMessage());
+	}
+
+}

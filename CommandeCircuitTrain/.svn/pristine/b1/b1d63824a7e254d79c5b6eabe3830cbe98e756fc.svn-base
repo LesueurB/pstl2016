@@ -1,0 +1,10 @@
+package upmc.train.model.server;
+
+public class NoSuchLightException extends Exception {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -2215297231328470920L;
+
+}

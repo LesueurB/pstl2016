@@ -1,0 +1,29 @@
+package upmc.train.model.messages.xml;
+
+import upmc.train.constantes.IConstantes;
+
+public class PCFSwitchElement  extends PCFElement implements IConstantes{
+	private String id ; 
+	private String position ;
+	
+	public String getId() {
+		return id;
+	}
+	
+	public String getPosition() {
+		return id;
+	}
+	
+	public PCFSwitchElement(String id, String position) 
+	{
+		this.id = id ;
+		this.position = position ;
+	}
+
+	public String getFragmentXML()
+	{	
+		String result = "<switch id=\"" + this.id + "\" pos=\"" + this.position + "\"/>" ;
+		return result;
+	}
+	
+}

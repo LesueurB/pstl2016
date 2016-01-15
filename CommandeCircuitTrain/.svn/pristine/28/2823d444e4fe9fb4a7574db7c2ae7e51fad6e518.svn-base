@@ -1,0 +1,110 @@
+package upmc.train.model;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Random;
+
+import upmc.train.model.communication.CommunicationArduino;
+import upmc.train.model.communication.NetMonitor;
+import upmc.train.model.communication.exception.TrainCommandException;
+import upmc.train.model.communication.simulator.NetMonitorSimulator;
+
+public class TrainSimulator extends Train 
+{
+	private ArrayList<String> cantonVisited = new ArrayList<String>() ;
+	public TrainSimulator(String adresse, NetMonitor communication) 
+	{
+		super(adresse, communication);
+	}
+	private Long getNextTime() {
+		Long nextTime = (long)1000 ;
+		int random = 0;
+		boolean satisfied = false ;
+		Random r = new Random() ;
+		while(!satisfied)
+		{
+			random = r.nextInt(10000);
+			satisfied = true ;
+		}
+		return nextTime + random;
+	}
+	public void setVitesse(int vitesse)
+	{
+		this.vitesse = vitesse ;
+		if (vitesse == 0)
+		{
+			this.communication.emergencyStop(this);
+			this.prochaineAction = -1 ;
+		}
+		else
+		{
+			this.setTempsProchaineActionTrain();
+			try
+			{
+				this.communication.setSpeed(this, vitesse);
+			}
+			catch(Exception e)
+			{
+				System.out.println("unable to set speed") ;
+			}
+		}
+			
+			
+	}
+	private  void setTempsProchaineActionTrain() 
+	{
+		if ((getVitesse() > 0) && (this.prochaineAction == -1))
+		{
+			long temps = this.getNextTime() + System.currentTimeMillis() ;
+			System.out.println("Ajout d'une action dans " + temps + " millisecondes pour " + adresse) ;
+			this.prochaineAction = temps;
+		}
+		else
+			this.prochaineAction = -1 ;
+	}
+	public void simulate() 
+	{
+		//SimpleDateFormat dateformatter = new SimpleDateFormat("dd MM yyyy : hh:mm:ss");
+		//String date = dateformatter.format(Calendar.getInstance().getTime()) ;
+		if (getVitesse() > 0)
+		{
+			if (prochaineAction > -1)
+			{
+				if ((System.currentTimeMillis() - prochaineAction) > 0)
+				{
+					String s = this.canton.getNom() + " -> " ;
+					this.canton = this.getNextCanton() ;
+					s += this.canton.getNom() ;
+					s += " (" + Calendar.getInstance().getTime() + ")" ;
+					//this.cantonVisited.add(s) ;
+					this.prochaineAction = -1 ;
+					this.setTempsProchaineActionTrain();
+					//System.out.println(date + " : " + this.getAdresse() + this.cantonVisited) ;
+					((NetMonitorSimulator)this.communication).simulateMessage(this.canton.getNom(), this.canton.getType()) ;
+					//return canton.getNumero() ;
+				}
+			}
+		}
+		//return -1; 
+}
+	   public void emergencyStop(Train train)
+	   {	
+			    	
+	   }
+	 
+	    public void setSpeed(Train train, int speed) throws TrainCommandException
+	    {
+				    	
+	    }
+	    
+	    public void reverse(Train train) throws TrainCommandException
+	    {
+			
+	    }
+	    
+	    public void forward(Train train) throws TrainCommandException
+	    {
+			
+	    }
+	
+}

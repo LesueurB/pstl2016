@@ -1,0 +1,60 @@
+package upmc.train.model.communication.simulator;
+
+import java.util.ArrayList;
+import java.util.Collection;
+
+import upmc.train.constantes.IConstantes;
+import upmc.train.constantes.IConstantes.EColor;
+import upmc.train.model.communication.ICommunication;
+import upmc.train.model.messages.IMessageListener;
+import upmc.train.model.messages.MessageEvent;
+
+
+public class CommunicationArduinoSimulator implements ICommunication
+{
+	
+	private final Collection<IMessageListener> messagesListeners = new ArrayList<IMessageListener>();
+
+	public void changeFeu(int numFeu, IConstantes.EColor couleur)
+    {
+    	String color = "red" ;
+    	if (couleur == EColor.GREEN)
+    		color = "green" ;
+       System.out.println("SIMULATOR ARDUINO send byte for \"changeFeu(" + numFeu + "," + color + ")\"") ;
+    }
+    
+    public void simulateMessage(String num, String type)
+    {
+    	/*if (type.equals("canton"))
+    		this.firedNewMessageEvent(" Capteur" + num + "...");
+    	else
+    		this.firedNewMessageEvent(" Gare" + num + "...");*/
+    	this.firedNewMessageEvent("" + num) ;
+    }
+    
+    //// Methodes concernant les listeners
+    public void addMessageListener(IMessageListener listener) {
+    	messagesListeners.add(listener);
+    }
+ 
+    public void removeMessageListener(IMessageListener listener) {
+    	messagesListeners.remove(listener);
+    }
+ 
+    public IMessageListener[] getMessageListeners() {
+        return messagesListeners.toArray(new IMessageListener[0]);
+    }
+    
+    private void firedNewMessageEvent(String msg)
+    {
+    	MessageEvent evt = new MessageEvent(msg) ;
+    	for(IMessageListener listener : this.messagesListeners)
+    		listener.newMessage(evt) ;
+    	System.out.println("SIMULATOR ARDUINO receive " + msg) ;
+    }
+    
+    public String getSerialPort()
+    {
+    	return "Serial simulator" ;
+    }
+}

@@ -1,0 +1,354 @@
+package upmc.train.model.messages;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import upmc.train.model.messages.xml.*;
+public class PCFDecoder 
+{
+	private Document root ;
+	private PCFRootElement racine ;
+	
+	public PCFDecoder(Document pcfFormat)
+	{
+		this.root = pcfFormat ;
+	}
+	public PCFRootElement startDecoding()  throws BadPCFFormatException
+	{
+		this.decodePCFElement();
+		this.decodeHello() ;
+		this.decodeOlleh() ;
+		this.decodeScenario();
+		this.decodeTopography() ;
+		this.decodeInit() ;
+		this.decodeUp() ;
+		this.decodeLights();
+		this.decodeSet(); 
+		this.decodeStart() ;
+		this.decodeAdvise() ;
+		this.decodeBye() ;
+		return null ;
+	}
+	
+	private void decodeBye()   throws BadPCFFormatException {
+		
+		NodeList nodes = this.root.getElementsByTagName("bye") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		this.racine.setBye(new PCFByeElement());		
+	}
+	private void decodeAdvise()  throws BadPCFFormatException 
+	{
+		Node node = null ;
+		NodeList nodes = this.root.getElementsByTagName("info") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		node = nodes.item(0) ;
+		String status = node.getAttributes().getNamedItem("status").getTextContent() ;
+		String contenu = node.getTextContent() ; 
+		PCFInfoElement advise = new PCFInfoElement(contenu,status) ;
+		this.racine.setInfo(advise);
+		
+		
+	}
+	private void decodeStart()  throws BadPCFFormatException {
+		
+		NodeList nodes = this.root.getElementsByTagName("start") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		this.racine.setStart(new PCFStartElement());
+		
+	}
+	private PCFPositionElement decodePosition(Node node)  throws BadPCFFormatException 
+	{
+		PCFPositionElement pos = new PCFPositionElement() ;
+		NodeList enfants = node.getChildNodes();
+	
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			if (enfants.item(j).getNodeName().equals("before"))
+			{
+					pos.setFin(this.decodeCapteur(enfants.item(j).getFirstChild()));
+					
+			}
+			if (enfants.item(j).getNodeName().equals("after"))
+			{
+					pos.setDebut(this.decodeCapteur(enfants.item(j).getFirstChild()));
+			}
+				
+			if (enfants.item(j).getNodeName().equals("train"))
+				pos.setTrain(this.decodeTrain(enfants.item(j)));			
+		}
+		
+		return pos ;
+		
+	}
+	private PCFTrainElement decodeTrain(Node node)  throws BadPCFFormatException 
+	{
+		String idT = node.getAttributes().getNamedItem("id").getTextContent() ;
+		String action = node.getAttributes().getNamedItem("action").getTextContent() ;
+		Node direction = node.getAttributes().getNamedItem("direction") ;
+		if (direction != null)
+			return new PCFTrainElement(idT,action, direction.getTextContent()) ;
+		else
+			return new PCFTrainElement(idT,action) ;
+		
+	}
+	private PCFLightElement decodeLight(Node node)  throws BadPCFFormatException {
+		String idT = node.getAttributes().getNamedItem("id").getTextContent() ;
+		String color = node.getAttributes().getNamedItem("color").getTextContent() ;
+		return new PCFLightElement(idT,color) ;
+		
+	}
+	
+	private void decodeLights()  throws BadPCFFormatException {
+		Node node = null ;
+		NodeList nodes = this.root.getElementsByTagName("lights") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		PCFLightsElement lights = new PCFLightsElement() ;
+		node = nodes.item(0) ;
+		NodeList enfants = node.getChildNodes();
+		if (nodes.getLength() < 1)
+			throw new BadPCFFormatException() ;	
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			Node light = enfants.item(j) ;
+			lights.addLight(this.decodeLight(light));
+
+		}
+		this.racine.setLights(lights);			
+		
+	}	
+	private PCFCapteurElement decodeCapteur(Node node)  throws BadPCFFormatException {
+		String id = node.getAttributes().getNamedItem("id").getTextContent() ;
+		String type = node.getAttributes().getNamedItem("type").getTextContent() ;		
+		return new PCFCapteurElement(id, type)  ;
+		
+	}
+
+	private PCFOutElement decodeOut(Node node) throws BadPCFFormatException {
+		PCFOutElement out = new PCFOutElement() ;
+		NodeList enfants = node.getChildNodes();
+		
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{	
+			out.addCapteur(this.decodeCapteur(enfants.item(j)));
+		}
+		return out ;
+		
+	}
+	
+	private PCFInElement decodeIn(Node node) throws BadPCFFormatException {
+		PCFInElement in = new PCFInElement() ;
+		NodeList enfants = node.getChildNodes();
+		
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{	
+			in.addCapteur(this.decodeCapteur(enfants.item(j)));
+		}		
+		return in ;
+		
+	}
+	
+	private PCFEdgeElement decodeEdge(Node node) throws BadPCFFormatException {
+		PCFEdgeElement edge = new PCFEdgeElement() ;
+		NodeList enfants = node.getChildNodes();
+		if (enfants.getLength() != 3)
+			throw new BadPCFFormatException() ;	
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			Node enfant = enfants.item(j) ;
+			if (enfant.getNodeName().equals("capteur"))
+			{
+				edge.setCapteur(this.decodeCapteur(enfant)) ;
+			}
+			else if (enfant.getNodeName().equals("in"))
+			{
+				edge.setIn(this.decodeIn(enfant)); 
+			}
+			else if (enfant.getNodeName().equals("out"))
+			{
+				edge.setOut(this.decodeOut(enfant));
+			}
+			else
+				throw new BadPCFFormatException() ;	
+		}		
+		return edge ;
+	}
+	
+	private void decodeUp()  throws BadPCFFormatException {
+		NodeList nodes = this.root.getElementsByTagName("up") ;
+		
+		if (nodes.getLength() == 0 )
+			return ;
+		for (int i = 0 ; i< nodes.getLength() ; i++)
+		{
+			Node noden = nodes.item(i) ;
+			PCFUpElement up = new PCFUpElement() ;
+			
+			NodeList enfants = noden.getChildNodes();
+			if (enfants.getLength() < 1)
+				throw new BadPCFFormatException() ;
+			for (int j = 0 ; j< enfants.getLength() ; j++)
+			{
+				Node capteur = enfants.item(j) ;
+				up.addCapteur(this.decodeCapteur(capteur));
+				
+			}
+			this.racine.addUp(up);			
+			
+		}
+		
+		
+	}
+	private void decodeInit()  throws BadPCFFormatException {
+		Node node = null ;
+		NodeList nodes = this.root.getElementsByTagName("init") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		PCFInitElement init = new PCFInitElement() ;
+		node = nodes.item(0) ;
+		NodeList enfants = node.getChildNodes();
+		if (nodes.getLength() < 1)
+			throw new BadPCFFormatException() ;	
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			Node position = enfants.item(j) ;
+			init.addPosition(this.decodePosition(position));
+
+		}
+		this.racine.setInit(init);			
+		
+	}
+	private void decodeTopography()  throws BadPCFFormatException 
+	{
+		Node node = null ;
+		NodeList nodes = this.root.getElementsByTagName("topography") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		PCFTopographyElement topo = new PCFTopographyElement() ;
+		node = nodes.item(0) ;
+		NodeList enfants = node.getChildNodes();
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			Node edge = enfants.item(j) ;
+			topo.addEdge(this.decodeEdge(edge));
+				
+		}		
+		this.racine.setTopography(topo);
+		
+	}
+
+	private void decodeSet()  throws BadPCFFormatException 
+	{
+		Node node = null ;
+		NodeList nodes = this.root.getElementsByTagName("set") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0 )
+			return ;
+		PCFSetElement set = new PCFSetElement() ;
+		node = nodes.item(0) ;
+		NodeList enfants = node.getChildNodes();
+		if (nodes.getLength() < 1)
+			throw new BadPCFFormatException() ;
+		for (int j = 0 ; j< enfants.getLength() ; j++)
+		{
+			Node trainOuLight = enfants.item(j) ;
+			if (trainOuLight.getNodeName().equals("train"))
+				set.addTrain(this.decodeTrain(trainOuLight));
+			else if (trainOuLight.getNodeName().equals("light"))
+				set.addLight(this.decodeLight(trainOuLight));
+				
+		}
+		this.racine.setSet(set);	
+		
+	}	
+	private void decodeScenario()  throws BadPCFFormatException {
+		NodeList nodes = this.root.getElementsByTagName("scenario") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0)
+			return ;
+		Node node = nodes.item(0) ;
+		Node id  = node.getAttributes().getNamedItem("id") ;
+		if (id == null)
+			this.racine.setScenario(new PCFScenarioElement());
+		else
+		{
+			String idT = node.getAttributes().getNamedItem("id").getTextContent() ;
+			this.racine.setScenario(new PCFScenarioElement(idT));
+		}
+		 
+	}
+	private void decodeOlleh()  throws BadPCFFormatException {
+		NodeList nodes = this.root.getElementsByTagName("olleh") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0)
+			return ;
+		Node node = nodes.item(0) ;
+		Node id  = node.getAttributes().getNamedItem("id") ;
+		if (id == null)
+			this.racine.setOlleh(new PCFOllehElement()) ;
+		else
+			this.racine.setOlleh(new PCFOllehElement(id.getTextContent())) ;		
+		
+	}
+	private void decodePCFElement() throws BadPCFFormatException
+	{
+		try
+		{
+		NodeList nodes = this.root.getElementsByTagName("pcf") ;
+		if (nodes.getLength() != 1)
+			throw new BadPCFFormatException() ;
+		Node node = nodes.item(0) ;
+		String reqid = node.getAttributes().getNamedItem("reqid").getTextContent() ;
+		String type = node.getAttributes().getNamedItem("type").getTextContent() ;
+		this.racine = new PCFRootElement(reqid,type) ;
+		}
+		catch(Exception e)
+		{
+			throw new BadPCFFormatException("Root is not comptible with DTD") ;
+		}
+			
+	}
+	
+	private void decodeHello()  throws BadPCFFormatException
+	{
+		NodeList nodes = this.root.getElementsByTagName("hello") ;
+		if (nodes.getLength() > 1)
+			throw new BadPCFFormatException() ;
+		if (nodes.getLength() == 0)
+			return ;
+		Node node = nodes.item(0) ;
+		if (node.getAttributes().getNamedItem("id") != null)
+		{
+			String id = node.getAttributes().getNamedItem("id").getTextContent() ;
+			this.racine.setHello(new PCFHelloElement(id)) ;	
+			
+		}
+		else
+			this.racine.setHello(new PCFHelloElement()) ;		
+	}
+	
+	/*GETTER ET SETTER */
+	public PCFRootElement getRacine() {
+		return racine;
+	}
+
+}

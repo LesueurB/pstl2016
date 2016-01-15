@@ -1,0 +1,52 @@
+package upmc.train.constantes;
+
+
+/**
+ * @author brunolesueur
+ * Date de  derni�re modification 2013-11-20 : mise en place de commentaires
+ * 
+ * EColor : couleur des feux
+ * EType : type de capteur
+ * EAction :	etat d'un train, attention le protocol PCF n'accepte que START et STOP
+ * 				les autres etats sont l� pour le fonctionnement dans le controleur
+ * EStatus : status d'une info (tel que decrite dans le protocol PCF)
+ * ETypeRequest : type du message dans le protocol PCF 
+ * EDirection : direction du train ou direction generale
+ */
+
+public interface IConstantes 
+{
+	public enum EColor {RED,GREEN} ;
+	public enum EType {CANTON,STATION} ;
+	public enum EAction {START,STOP,READY, ATTENTE, ENSTATION} ;
+	public enum EStatus {OK,KO} ;
+	public enum ETypeRequest {REQUEST,ANSWER, ADVISE} ;
+	public enum EDirection {FORWARD, BACKWARD} ;
+	public enum ECodeTypeMateriel {
+		TRAIN ((byte)1),
+		FEU ((byte)2),
+		NIVEAU ((byte)3),
+		capteur ((byte)0x10),
+		AIGUILLAGE ((byte)4) ;
+	public byte val = 0 ;
+	ECodeTypeMateriel(byte val) {this.val = val ;} } ;
+	public enum ECodeTypeCommande {
+		SWITCH ((byte)0xFE),
+		EMMERGENCY ((byte)2),
+		VITESSE ((byte)1),
+		PHARE ((byte)3) ;
+	public byte val = 0 ;
+	ECodeTypeCommande(byte val) {this.val = val ;} } ;	
+	public final static String portArduino = "/dev/tty.usbmodem1411" ;
+	public final static boolean simulator = true ;
+	public static final boolean newProtocol = true;
+	public static final String erreurs[] = {
+											"Erreur inconnue"
+											,"Commande DCC inconnue"
+											,"Pas de train à cette adresse"
+											,"Pas de feux à cette adresse"
+											,"Commande de feu inconnue"
+											,"Matériel inconnu"
+											,"Défaut de courant"
+											} ;
+}

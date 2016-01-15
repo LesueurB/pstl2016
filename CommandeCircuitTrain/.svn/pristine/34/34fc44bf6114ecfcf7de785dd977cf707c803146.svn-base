@@ -1,0 +1,94 @@
+package upmc.train.model;
+
+import java.util.ArrayList;
+
+import upmc.train.model.server.NoSuchLightException;
+
+
+public class Topography 
+{
+	private ArrayList<Canton> cantonsDepart = new ArrayList<Canton>() ;
+
+
+	public void setCantonsDepart(ArrayList<Canton> cantonsDepart) {
+		this.cantonsDepart = cantonsDepart;
+	}
+
+	private ArrayList<Canton> globalListCanton = new ArrayList<Canton>() ;
+	private ArrayList<Light> lights = new ArrayList<Light>() ;
+	
+	public ArrayList<Light> getLights() {
+		return lights;
+	}
+
+	public void addCanton(Canton c)
+	{
+		this.cantonsDepart.add(c) ;
+	}
+	
+	public void addLight(Light l)
+	{
+		this.lights.add(l) ;
+	}
+	
+	public void addToGlobalList(Canton c)
+	{
+		if (this.cantonsDepart.isEmpty())
+			this.cantonsDepart.add(c) ;
+		this.globalListCanton.add(c) ;
+	}	
+	
+	public void removeCanton(Canton c)
+	{
+		this.cantonsDepart.remove(c) ;
+	}	
+	
+	public ArrayList<Canton> getCantonsDepart()
+	{
+		return this.cantonsDepart ;
+	}
+	
+
+	public Light getLightByid(String num) throws NoSuchLightException
+	{
+		for(Light l : this.lights)
+		{
+			if (l.getNumero().equals(num))
+				return l ;
+		}
+		throw new NoSuchLightException() ;
+	}	
+	
+	public Canton getCantonByid(int num)
+	{
+		for(Canton c : this.globalListCanton)
+		{
+			if (c.getNumero() == num)
+				return c ;
+		}
+		return null ;
+	}
+	
+	public Canton getCantonByName(String name)
+	{
+		for(Canton c : this.globalListCanton)
+		{
+			if (c.getNom().equals(name))
+				return c ;
+		}
+		return null ;
+	}
+	public ArrayList<Canton> getGlobalListCanton() {
+		return globalListCanton;
+	}
+
+	public Light getLightByName(String capteur) throws NoSuchLightException {
+		for(Canton c : this.globalListCanton)
+		{
+			if (c.getNom().equals(capteur))
+				return c.getLight() ;
+		}
+		throw new NoSuchLightException() ;
+	}
+	
+}

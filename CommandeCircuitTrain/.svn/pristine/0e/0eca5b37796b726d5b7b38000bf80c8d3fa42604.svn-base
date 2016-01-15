@@ -1,0 +1,6 @@
+package upmc.train.model;
+
+public class InfiniteLoopRoad extends PartRoad 
+{
+
+}

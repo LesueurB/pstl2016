@@ -1,0 +1,82 @@
+package upmc.train.model.server;
+
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
+import upmc.train.model.communication.NetMonitor;
+
+public class NetMonitorServer extends Thread
+{
+	private int PORT = 55556 ;
+	private ServerSocket server ;
+	private NetMonitor monitor ;
+	private String scenario  = "1";
+	
+
+	public NetMonitorServer()
+	{
+	}
+	public NetMonitorServer(int port, String scenario)
+	{
+		this.PORT = port ;
+		this.scenario = scenario ;
+	}
+	
+	public NetMonitor getMonitor() {
+		return monitor;
+	}
+
+
+	public void setMonitor(NetMonitor monitor) {
+		this.monitor = monitor;
+	}
+
+
+	public void run()
+	{
+		SimpleDateFormat dateformatter = new SimpleDateFormat("dd MM yyyy : hh:mm:ss");
+		try{
+			server = new ServerSocket (PORT);
+		}//try
+		catch (Exception e) {
+			String date = dateformatter.format(Calendar.getInstance().getTime()) ;
+			System.out.println(date + " : Impossible to listen port " + PORT) ;
+			return ;
+		}
+		while(true)
+		{
+			try 
+			{
+				String date = dateformatter.format(Calendar.getInstance().getTime()) ;
+				System.out.println(date + " : I'm listening for new connection ...") ;
+				Socket s = server.accept();
+				new NetMonitorDecoder(s, scenario) ;
+			} 
+			catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	public static void main (String[] args) 
+	{
+		int port ;
+		String scenario ; 
+		NetMonitorServer server ;
+		if (args.length == 2)
+		{
+			port = Integer.parseInt(args[0]);
+			scenario = args[1] ;
+			server = new NetMonitorServer(port,scenario) ;
+		}
+		else
+		{
+			server = new NetMonitorServer() ;
+		}
+		server.start();
+	}
+
+}

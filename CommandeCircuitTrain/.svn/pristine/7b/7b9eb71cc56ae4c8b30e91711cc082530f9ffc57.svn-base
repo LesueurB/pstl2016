@@ -1,0 +1,38 @@
+package upmc.train.model;
+
+
+import java.util.ArrayList;
+
+public class Route 
+{
+	private ArrayList<PartRoad> portionRoute = new ArrayList<PartRoad>() ;
+	private int actuel = 0 ;
+	public void addPartRoad(PartRoad p)
+	{
+		this.portionRoute.add(p) ;
+	}
+	private int getNumeroCantonSuivant()
+	{
+		int canton;
+		if (this.portionRoute.get(actuel).isFinish())
+		{
+			if (this.actuel == this.portionRoute.size() - 1)
+				canton = 0 ;
+			else 
+				canton = this.actuel + 1 ;
+			return canton ;
+		}
+		return actuel ;
+	}
+	public Canton gotoNextCanton()
+	{
+		this.actuel = this.getNumeroCantonSuivant() ;
+		return this.portionRoute.get(actuel).gotoNextCanton() ; 
+	}
+	
+	public Canton getNextCanton()
+	{	
+		
+		return this.portionRoute.get(getNumeroCantonSuivant()).getNextCanton() ;
+	}
+}

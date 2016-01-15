@@ -1,0 +1,25 @@
+package upmc.train.constantes;
+
+
+/**
+ * @author brunolesueur
+ * Date de  dernière modification 2013-11-20 : mise en place de commentaires
+ * 
+ * EColor : couleur des feux
+ * EType : type de capteur
+ * EAction :	etat d'un train, attention le protocol PCF n'accepte que START et STOP
+ * 				les autres etats sont là pour le fonctionnement dans le controleur
+ * EStatus : status d'une info (tel que decrite dans le protocol PCF)
+ * ETypeRequest : type du message dans le protocol PCF 
+ * EDirection : direction du train ou direction generale
+ */
+
+public interface IConstantes 
+{
+	public enum EColor {RED,GREEN} ;
+	public enum EType {CANTON,STATION} ;
+	public enum EAction {START,STOP,READY, ATTENTE, ENSTATION} ;
+	public enum EStatus {OK,KO} ;
+	public enum ETypeRequest {REQUEST,ANSWER, ADVISE} ;
+	public enum EDirection {FORWARD, BACKWARD} ;
+}

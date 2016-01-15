@@ -1,0 +1,161 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package upmc.train.model.communication.simulator;
+
+import java.util.ArrayList;
+import upmc.train.model.communication.ThreadWiThrottle;
+
+/**
+ *
+ * @author brunolesueur
+ * 
+ * Cette classe permet de créer un client reseaux vers un serveur WiThrottle et permet
+ * donc de controler les trains
+ * 
+ */
+public class ThreadWiThrottleSimulator extends ThreadWiThrottle
+{
+  
+    private ArrayList<String> message = new ArrayList<String>() ;
+    
+    synchronized public void  setMessage(String msg)
+    {
+    	synchronized(this.message)
+    	{
+    		this.message.add(msg) ;
+    		System.out.println("SIMULATOR WITHROTTLE MESSAGE : " + msg) ;
+    	}
+    }
+    
+    public void stopWT()
+    {
+       /* this.setMessage("Q");
+        output.flush() 
+        ;*/
+    }
+    
+    public void emergencyStop()
+    {	
+    		this.setMessage("TV0") ;
+    		this.setMessage("TX");
+	    	
+    	
+
+    }
+ 
+    public void setSpeed(int speed)
+    {
+    	this.setMessage("TV" + speed) ;
+    }
+    
+    public ThreadWiThrottleSimulator(String adresse, int port, int adresseLoco)
+    {
+    	super() ;
+ /*       _port = port ;
+        try
+        {
+            
+            _socket = new Socket(adresse, _port);
+
+            // Open stream
+            input = new BufferedReader(new InputStreamReader(_socket.getInputStream()));
+            
+            
+            output = new PrintWriter(_socket.getOutputStream());
+            output.println("NLesueurT");
+            output.flush() ;
+            output.println("TS" + adresseLoco) ;
+            output.flush() ;
+        }
+        catch (UnknownHostException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            
+        }   
+        */	
+    }
+    public void startCommand()
+    {
+    	//this.isRunning = true ;
+    	//this.start() ;
+    }
+    public void init(String adresse, int port, int adresseLoco)
+    {
+       /*    _port = port ;
+        try
+        {
+            
+            _socket = new Socket(adresse, _port);
+
+            // Open stream
+            input = new BufferedReader(new InputStreamReader(_socket.getInputStream()));
+            
+            
+            output = new PrintWriter(_socket.getOutputStream());
+            output.println("NLesueurT");
+            output.flush() ;
+            output.println("TS" + adresseLoco) ;
+            output.flush() ;
+            this.isRunning = true ;
+            this.start();
+        }
+                catch (UnknownHostException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            this.isRunning = false ;
+        }
+        */
+    }
+    
+    public void run()
+    {
+    	/*String msg ;
+        while(this.isRunning)
+        {
+            try {
+                Thread.sleep(50);
+                
+                if (this.message.size() > 0)
+                {
+                	synchronized(this.message)
+                	{
+                		msg = this.message.remove(0) ;
+                	}
+
+                	output.println(msg);
+                    output.flush();
+                    String response = "";
+                    String texte  = "" ;
+                    try {
+                        response = input.readLine();
+                        while((texte = input.readLine()).length() > 0)
+                        {
+                            response += texte ;
+                        }
+                    } catch (IOException ex) {
+                        
+                    }
+                    System.out.println("Message recu : " + response) ;
+                    
+                }
+                if (this.message.equals("Q"))
+                	this.isRunning = false ;
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ThreadWiThrottleSimulator.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+        }*/
+    }
+
+    
+}

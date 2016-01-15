@@ -1,0 +1,235 @@
+package upmc.train.model;
+
+import java.util.Random;
+
+import upmc.train.constantes.IConstantes.EAction;
+import upmc.train.constantes.IConstantes.EDirection;
+import upmc.train.model.communication.NetMonitor;
+import upmc.train.model.communication.exception.TrainCommandException;
+
+
+public class Train 
+{
+	
+	protected Canton canton ;
+	protected EDirection direction = EDirection.FORWARD ;
+	protected boolean isWaiting = false ;
+	protected NetMonitor communication ;
+	
+	public EDirection getDirection() {
+		return direction;
+	}
+
+	public Canton getCanton() {
+		return canton;
+	}
+	
+	protected String adresse ;
+	protected long prochaineAction = -1 ;
+	protected int vitesse = 0 ;
+	protected EAction action ;
+	public Train(String adresse, NetMonitor communication)
+	{
+		this.adresse = adresse ;
+		this.action = EAction.STOP ;
+		this.communication = communication ;
+		if (communication != null)
+			communication.addNewTrain(this.adresse);
+	}
+
+	protected String getAddresse()
+	{
+		return this.adresse ;
+	}
+	public void setVitesse(int vitesse)
+	{	
+		int ancVitesse = this.vitesse ;
+		this.vitesse = vitesse ;
+		if (communication != null)
+		{
+			if (vitesse == 0)
+			{
+				if (ancVitesse != vitesse)
+					this.communication.emergencyStop(this);
+			}
+			else
+			{
+				try
+				{
+					if (ancVitesse != vitesse)
+						this.communication.setSpeed(this, vitesse);
+				}
+				catch(Exception e)
+				{
+					System.out.println("unable to set speed") ;
+				}
+			}
+		}
+	}
+	public void reverse()
+	{
+		if (communication != null)
+		{
+			try {
+				this.communication.reverse(this);
+				this.direction = EDirection.BACKWARD ;
+			} catch (TrainCommandException e) {
+				
+			}
+		}
+		else
+			this.direction = EDirection.BACKWARD ;
+	}
+	public void forward()
+	{
+		
+		if (communication != null)
+		{
+			try {
+				this.communication.forward(this);
+				this.direction = EDirection.FORWARD ;
+				
+			} catch (TrainCommandException e) {
+				
+			}
+		}
+		else
+			this.direction = EDirection.FORWARD ;
+	}	
+	
+	
+
+	public void simulate()
+	{
+ 
+	}
+
+	public String getAdresse() {
+		
+		return adresse;
+	}
+
+	public void setAction(EAction action) {
+		if (!isWaiting)
+		{
+			this.action = action ;
+			if (action == EAction.START)
+					this.setVitesse(50 + new Random().nextInt(30)) ;
+			else
+			{
+					this.setVitesse(0);
+			}
+		}
+		
+	}
+
+	public void setCanton(Canton canton) {
+		this.canton = canton ;
+		
+	}
+
+	public Canton getPreviousCanton(int n)
+	{
+		Canton reponse = this.getCanton();
+		for (int i = 0 ; i < n ; i++)
+		{
+				reponse = reponse.getPrevious(this.getDirection()).get(0) ;			
+		}
+		return reponse ;
+	}	
+
+	public Canton getPreviousCantonWithLight()
+	{
+		return this.getPreviousCantonWithLight(1) ;
+		
+	}
+	private Canton getPreviousCantonWithLight(int i)
+	{
+		Canton reponse = this.getPreviousCanton(i) ;
+		if (reponse.getLight() == null)
+			return this.getPreviousCantonWithLight(i + 1) ;
+		else return reponse ;
+		
+	}	
+	public Canton getNextCantonWithLight()
+	{
+		return this.getNextCantonWithLight(1) ;
+		
+	}
+	private Canton getNextCantonWithLight(int i)
+	{
+		Canton reponse = this.getNextCanton(i) ;
+		if (reponse.getLight() == null)
+			return this.getNextCantonWithLight(i + 1) ;
+		else return reponse ;
+		
+	}	
+	public Canton getNextCanton(int n)
+	{
+		Canton reponse = this.getCanton();
+		for (int i = 0 ; i < n ; i++)
+		{
+			reponse =  reponse.getNext(this.getDirection()).get(0) ;		
+		}
+		return reponse ;
+	}
+	
+	public Canton getNextCanton()
+	{
+		return this.getNextCanton(1) ;
+	}
+	public Canton getPreviousCanton()
+	{
+		return this.getNextCanton(1) ;
+	}
+	
+	public String getActionsAsString() {
+		if (action == EAction.START)
+			return "START" ;
+		if (action == EAction.STOP)
+			return "STOP" ;		
+		if (action == EAction.READY)
+			return "READY" ;
+		if (action == EAction.ENSTATION)
+			return "EN STATION" ;
+		return "ATTENTE" ;
+	}
+	
+	public String toString()
+	{
+		String dir = "F" ;
+		if (this.direction == EDirection.BACKWARD)
+			dir = "R" ;
+		
+		return this.getCanton().getNom() + "-" + dir + "-" + this.getAdresse() + " (" + this.getActionsAsString() + ")" ;
+	}
+
+	public void setDirection(EDirection direction) {
+		if (direction == EDirection.BACKWARD)
+			this.reverse();
+		else
+			this.forward();
+		this.direction = direction ;
+		
+	}
+	public String getDirectionAsString() {
+		if (direction == EDirection.FORWARD)
+			return "forward" ;
+		else
+			return "backward" ;
+	}
+	
+	public void stopWaiting()
+	{
+		this.isWaiting = false ;
+		this.setAction(EAction.READY);
+	}
+
+	public void setActionWithoutChange(EAction action) {
+		this.action = action ;
+		
+	}
+	
+	
+
+}

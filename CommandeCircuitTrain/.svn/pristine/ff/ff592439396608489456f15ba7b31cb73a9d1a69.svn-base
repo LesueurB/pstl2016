@@ -1,0 +1,19 @@
+package upmc.train.model;
+
+public class Gare extends Canton 
+{
+
+	
+	public Gare(String nom, int numero) 
+	{
+		super(nom, numero);
+	}
+	public Gare(String nom, String numero) 
+	{
+		super(nom, numero);
+	}
+	public String getType() {
+		// TODO Auto-generated method stub
+		return "gare";
+	}	
+}

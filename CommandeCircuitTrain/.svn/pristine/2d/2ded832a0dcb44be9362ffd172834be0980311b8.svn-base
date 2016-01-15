@@ -1,0 +1,8 @@
+package upmc.train.model.communication;
+
+public class NetMonitorWithoutWiThrottle extends NetMonitor
+{
+	public void addNewTrain(String adresseTrain)
+	{  
+	}
+}
